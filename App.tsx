@@ -6,62 +6,60 @@
  */
 
 import React from 'react';
-import type {PropsWithChildren} from 'react';
 import {
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TouchableOpacity,
   useColorScheme,
   View,
 } from 'react-native';
-
+import {useTensorflowModel} from 'react-native-fast-tflite';
 import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+  useFrameProcessor,
+} from 'react-native-vision-camera';
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+import {Colors} from 'react-native/Libraries/NewAppScreen';
+import {useResizePlugin} from 'vision-camera-resize-plugin';
 
 function App(): React.JSX.Element {
+  const {resize} = useResizePlugin();
+  const objectDetection = useTensorflowModel(require('./assets/3.tflite'));
+  const model =
+    objectDetection.state === 'loaded' ? objectDetection.model : undefined;
   const isDarkMode = useColorScheme() === 'dark';
-
+  const {hasPermission, requestPermission} = useCameraPermission();
+  const device = useCameraDevice('back');
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
+  const frameProcessor = useFrameProcessor(
+    frame => {
+      'worklet';
+      if (model) {
+        const resized = resize(frame, {
+          scale: {
+            width: 192,
+            height: 192,
+          },
+          pixelFormat: 'rgb',
+          dataType: 'float32',
+        });
 
+        // 2. Run model with given input buffer synchronously
+        const outputs = model.runSync([resized]);
+
+        // 3. Interpret outputs accordingly
+        console.log('Detected', outputs);
+      }
+    },
+    [model],
+  );
   return (
     <SafeAreaView style={backgroundStyle}>
       <StatusBar
@@ -71,25 +69,21 @@ function App(): React.JSX.Element {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         style={backgroundStyle}>
-        <Header />
         <View
           style={{
             backgroundColor: isDarkMode ? Colors.black : Colors.white,
           }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+          <TouchableOpacity onPress={requestPermission}>
+            <Text>Request permission</Text>
+          </TouchableOpacity>
+          {device && hasPermission && (
+            <Camera
+              frameProcessor={frameProcessor}
+              style={styles.camera}
+              device={device}
+              isActive={true}
+            />
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -112,6 +106,10 @@ const styles = StyleSheet.create({
   },
   highlight: {
     fontWeight: '700',
+  },
+  camera: {
+    width: '100%',
+    height: 600,
   },
 });
 

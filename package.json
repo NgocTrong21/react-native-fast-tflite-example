@@ -11,7 +11,11 @@
   },
   "dependencies": {
     "react": "18.2.0",
-    "react-native": "0.73.6"
+    "react-native": "0.73.6",
+    "react-native-fast-tflite": "^1.2.0",
+    "react-native-vision-camera": "^3.9.2",
+    "react-native-worklets-core": "0.2.4",
+    "vision-camera-resize-plugin": "^2.1.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
