@@ -29,7 +29,78 @@ import {useResizePlugin} from 'vision-camera-resize-plugin';
 
 function App(): React.JSX.Element {
   const {resize} = useResizePlugin();
-  const objectDetection = useTensorflowModel(require('./assets/3.tflite'));
+  const keypoints = [
+    {
+      name: 'nose',
+      value: 0,
+    },
+    {
+      name: 'left eye',
+      value: 1,
+    },
+    {
+      name: 'right eye',
+      value: 2,
+    },
+    {
+      name: 'left ear',
+      value: 3,
+    },
+    {
+      name: 'right ear',
+      value: 4,
+    },
+    {
+      name: 'left shoulder',
+      value: 5,
+    },
+    {
+      name: 'right shoulder',
+      value: 6,
+    },
+    {
+      name: 'left elbow',
+      value: 7,
+    },
+
+    {
+      name: 'right elbow',
+      value: 8,
+    },
+    {
+      name: 'left wrist',
+      value: 9,
+    },
+    {
+      name: 'right wrist',
+      value: 10,
+    },
+    {
+      name: 'left hip',
+      value: 11,
+    },
+    {
+      name: 'right hip',
+      value: 12,
+    },
+    {
+      name: 'left knee',
+      value: 13,
+    },
+    {
+      name: 'right knee',
+      value: 14,
+    },
+    {
+      name: 'left ankle',
+      value: 15,
+    },
+    {
+      name: 'right ankle',
+      value: 16,
+    },
+  ];
+  const objectDetection = useTensorflowModel(require('./assets/4.tflite'));
   const model =
     objectDetection.state === 'loaded' ? objectDetection.model : undefined;
   const isDarkMode = useColorScheme() === 'dark';
@@ -48,14 +119,31 @@ function App(): React.JSX.Element {
             height: 192,
           },
           pixelFormat: 'rgb',
-          dataType: 'float32',
+          dataType: 'uint8',
         });
 
         // 2. Run model with given input buffer synchronously
         const outputs = model.runSync([resized]);
 
+        const output = outputs[0]
+
         // 3. Interpret outputs accordingly
-        console.log('Detected', outputs);
+        console.log(
+          'Detected',
+          keypoints.map(item => {
+            const keyIndex = item.value;
+            const y = output[keyIndex * 3];
+            const x = output[keyIndex * 3 + 1];
+            const score = output[keyIndex * 3 + 2];
+            const label = item.name;
+            return {
+              label,
+              x,
+              y,
+              score,
+            };
+          }),
+        );
       }
     },
     [model],
