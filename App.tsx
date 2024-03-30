@@ -23,12 +23,39 @@ import {
   useCameraPermission,
   useFrameProcessor,
 } from 'react-native-vision-camera';
-
+import {Canvas, useCanvasRef, Circle, Line} from '@shopify/react-native-skia';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
 import {useResizePlugin} from 'vision-camera-resize-plugin';
-
+const lines = [
+  // left shoulder -> elbow
+  [5, 7],
+  // right shoulder -> elbow
+  [6, 8],
+  // left elbow -> wrist
+  [7, 9],
+  // right elbow -> wrist
+  [8, 10],
+  // left hip -> knee
+  [11, 13],
+  // right hip -> knee
+  [12, 14],
+  // left knee -> ankle
+  [13, 15],
+  // right knee -> ankle
+  [14, 16],
+  // left hip -> right hip
+  [11, 12],
+  // left shoulder -> right shoulder
+  [5, 6],
+  // left shoulder -> left hip
+  [5, 11],
+  // right shoulder -> right hip
+  [6, 12],
+];
 function App(): React.JSX.Element {
+  const ref = useCanvasRef();
   const {resize} = useResizePlugin();
+  const [posesData, setPoseData] = React.useState();
   const keypoints = [
     {
       name: 'nose',
@@ -125,25 +152,39 @@ function App(): React.JSX.Element {
         // 2. Run model with given input buffer synchronously
         const outputs = model.runSync([resized]);
 
-        const output = outputs[0]
+        const output = outputs[0];
 
         // 3. Interpret outputs accordingly
-        console.log(
-          'Detected',
-          keypoints.map(item => {
-            const keyIndex = item.value;
-            const y = output[keyIndex * 3];
-            const x = output[keyIndex * 3 + 1];
-            const score = output[keyIndex * 3 + 2];
-            const label = item.name;
-            return {
-              label,
-              x,
-              y,
-              score,
-            };
-          }),
-        );
+        const posesList = keypoints.map(item => {
+          const keyIndex = item.value;
+          const x = output[keyIndex * 3];
+          const y = output[keyIndex * 3 + 1];
+          const score = output[keyIndex * 3 + 2];
+          const label = item.name;
+          return {
+            label,
+            x,
+            y,
+            score,
+          };
+        });
+        setPoseData(posesList);
+        // console.log(
+        //   'Detected',
+        //   keypoints.map(item => {
+        //     const keyIndex = item.value;
+        //     const y = output[keyIndex * 3];
+        //     const x = output[keyIndex * 3 + 1];
+        //     const score = output[keyIndex * 3 + 2];
+        //     const label = item.name;
+        //     return {
+        //       label,
+        //       x,
+        //       y,
+        //       score,
+        //     };
+        //   }),
+        // );
       }
     },
     [model],
@@ -173,6 +214,33 @@ function App(): React.JSX.Element {
             />
           )}
         </View>
+        <View>
+          <Canvas style={styles.canvas} ref={ref}>
+            {posesData.map((item, index) => (
+              <Circle
+                key={index}
+                r={4}
+                cx={item.x * 192}
+                cy={item.y * 192}
+                color="red"
+              />
+            ))}
+            {lines.map((item, index) => (
+              <Line
+                key={index}
+                color={'red'}
+                p1={{
+                  x: posesData[item[0]].x * 192,
+                  y: posesData[item[0]].y * 192,
+                }}
+                p2={{
+                  x: posesData[item[1]].x * 192,
+                  y: posesData[item[1]].y * 192,
+                }}
+              />
+            ))}
+          </Canvas>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -197,7 +265,14 @@ const styles = StyleSheet.create({
   },
   camera: {
     width: '100%',
-    height: 600,
+    height: 400,
+  },
+  canvas: {
+    backgroundColor: 'green',
+    borderWidth: 1,
+    borderColor: 'black',
+    width: '100%',
+    height: 400,
   },
 });
 
