@@ -53,6 +53,7 @@ const lines = [
   [6, 12],
 ];
 function App(): React.JSX.Element {
+  const count = React.useRef(0);
   const ref = useCanvasRef();
   const {resize} = useResizePlugin();
   const [posesData, setPoseData] = React.useState();
@@ -136,10 +137,12 @@ function App(): React.JSX.Element {
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
+  const handleSetData = Worklets.createRunInJsFn(setPoseData);
   const frameProcessor = useFrameProcessor(
     frame => {
       'worklet';
       if (model) {
+        count.current++;
         const resized = resize(frame, {
           scale: {
             width: 192,
@@ -147,13 +150,12 @@ function App(): React.JSX.Element {
           },
           pixelFormat: 'rgb',
           dataType: 'uint8',
+          rotation: '90deg',
         });
-
         // 2. Run model with given input buffer synchronously
         const outputs = model.runSync([resized]);
 
         const output = outputs[0];
-
         // 3. Interpret outputs accordingly
         const posesList = keypoints.map(item => {
           const keyIndex = item.value;
@@ -168,23 +170,23 @@ function App(): React.JSX.Element {
             score,
           };
         });
-        setPoseData(posesList);
-        // console.log(
-        //   'Detected',
-        //   keypoints.map(item => {
-        //     const keyIndex = item.value;
-        //     const y = output[keyIndex * 3];
-        //     const x = output[keyIndex * 3 + 1];
-        //     const score = output[keyIndex * 3 + 2];
-        //     const label = item.name;
-        //     return {
-        //       label,
-        //       x,
-        //       y,
-        //       score,
-        //     };
-        //   }),
-        // );
+        if (count.current % 1 === 0) {
+          handleSetData(
+            keypoints.map(item => {
+              const keyIndex = item.value;
+              const y = output[keyIndex * 3];
+              const x = output[keyIndex * 3 + 1];
+              const score = output[keyIndex * 3 + 2];
+              const label = item.name;
+              return {
+                label,
+                x,
+                y,
+                score,
+              };
+            }),
+          );
+        }
       }
     },
     [model],
@@ -214,18 +216,18 @@ function App(): React.JSX.Element {
             />
           )}
         </View>
-        <View>
-          <Canvas style={styles.canvas} ref={ref}>
-            {posesData.map((item, index) => (
+        <Canvas style={styles.canvas}>
+          {posesData &&
+            posesData.map((item, index) => (
               <Circle
                 key={index}
                 r={4}
-                cx={item.x * 192}
-                cy={item.y * 192}
+                cx={item.x * 300}
+                cy={item.y * 300}
                 color="red"
               />
             ))}
-            {lines.map((item, index) => (
+          {/* {lines.map((item, index) => (
               <Line
                 key={index}
                 color={'red'}
@@ -238,9 +240,8 @@ function App(): React.JSX.Element {
                   y: posesData[item[1]].y * 192,
                 }}
               />
-            ))}
-          </Canvas>
-        </View>
+            ))} */}
+        </Canvas>
       </ScrollView>
     </SafeAreaView>
   );
