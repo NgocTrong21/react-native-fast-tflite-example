@@ -1,4 +1,5 @@
-import React, {useState} from 'react';
+/* eslint-disable prettier/prettier */
+import React, { useState } from 'react';
 import {
   Dimensions,
   SafeAreaView,
@@ -8,21 +9,16 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
-import {useTensorflowModel} from 'react-native-fast-tflite';
+import { useTensorflowModel } from 'react-native-fast-tflite';
 import {
   Camera,
   useCameraDevice,
   useCameraPermission,
   useFrameProcessor,
 } from 'react-native-vision-camera';
-import {Colors} from 'react-native/Libraries/NewAppScreen';
-import {useResizePlugin} from 'vision-camera-resize-plugin';
-import {Svg, Circle} from 'react-native-svg';
-
-interface Tuple {
-  x: number;
-  y: number;
-}
+import { Colors } from 'react-native/Libraries/NewAppScreen';
+import { useResizePlugin } from 'vision-camera-resize-plugin';
+import { Svg, Circle, Line } from 'react-native-svg';
 
 interface Coordinate {
   label: string;
@@ -30,6 +26,12 @@ interface Coordinate {
   x: number;
   y: number;
 }
+
+const MIN_SCORE = 0.3;
+const widthPreview = 400;
+const heightPreview = widthPreview / (3 / 4)
+// const heightPreview = 650;
+
 
 const lines = [
   // left shoulder -> elbow
@@ -60,16 +62,15 @@ const lines = [
 
 function App(): React.JSX.Element {
   const count = React.useRef(0);
-  const {resize} = useResizePlugin();
+  const { resize } = useResizePlugin();
   const [posesData, setPoseData] = useState<Coordinate[]>();
-
   const setCordinate = (poseData: Coordinate[]) => {
     const result = poseData.map(pose => {
       const coordinate = normalizedToPixelCoordinates(
         pose.x,
         pose.y,
-        getWidth(),
-        getHeight(),
+        widthPreview,
+        heightPreview,
       );
       return {
         ...pose,
@@ -79,6 +80,21 @@ function App(): React.JSX.Element {
     });
     setPoseData(result);
   };
+
+  //   "check normile",
+  // const mockData = { "0": { "label": "nose", "score": 0.5694627165794373, "x": 0.4875256419181824, "y": 0.24990808963775635 }, "1": { "label": "left eye", "score": 0.4998161792755127, "x": 0.4998161792755127, "y": 0.24581123888492584 }, "10": { "label": "right wrist", "score": 0.4998161792755127, "x": 0.27039235830307007, "y": 0.4137822687625885 }, "11": { "label": "left hip", "score": 0.6350123882293701, "x": 0.5121067762374878, "y": 0.5325910449028015 }, "12": { "label": "right hip", "score": 0.6350123882293701, "x": 0.44655707478523254, "y": 0.5325910449028015 }, "13": { "label": "left knee", "score": 0.843951940536499, "x": 0.5448815822601318, "y": 0.700562059879303 }, "14": { "label": "right knee", "score": 0.4301696717739105, "x": 0.4178791046142578, "y": 0.6923683285713196 }, "15": { "label": "left ankle", "score": 0.4998161792755127, "x": 0.5448815822601318, "y": 0.8357582092285156 }, "16": { "label": "right ankle", "score": 0.7538211345672607, "x": 0.3892011344432831, "y": 0.8398550748825073 }, "2": { "label": "right eye", "score": 0.4301696717739105, "x": 0.47523507475852966, "y": 0.24171438813209534 }, "3": { "label": "left ear", "score": 0.6350123882293701, "x": 0.5203004479408264, "y": 0.24990808963775635 }, "4": { "label": "right ear", "score": 0.6350123882293701, "x": 0.45884764194488525, "y": 0.24581123888492584 }, "5": { "label": "left shoulder", "score": 0.5694627165794373, "x": 0.5653658509254456, "y": 0.33184516429901123 }, "6": { "label": "right shoulder", "score": 0.700562059879303, "x": 0.4301696717739105, "y": 0.34003889560699463 }, "7": { "label": "left elbow", "score": 0.4301696717739105, "x": 0.6309155225753784, "y": 0.3932979702949524 }, "8": { "label": "right elbow", "score": 0.36462000012397766, "x": 0.33594202995300293, "y": 0.37691056728363037 }, "9": { "label": "left wrist", "score": 0.4998161792755127, "x": 0.7087557315826416, "y": 0.45884764194488525 } }
+  // console.log(
+  //   "check normile",
+  //   Object.values(mockData)?.map((item) => {
+  //     const coordinate = normalizedToPixelCoordinates(item.x, item.y, 192, 192);
+  //     return {
+  //       ...item,
+  //       x: coordinate?.x,
+  //       y: coordinate?.y,
+  //     };
+  //   })
+  // );
+  // console.log('check mockdata', Object.values(mockData));
 
   const keypoints = [
     {
@@ -152,87 +168,35 @@ function App(): React.JSX.Element {
     },
   ];
 
-  function convertPoseDataToCoordinates(
-    poseData: Coordinate[],
-  ): [number, number][] {
-    return poseData.map(point => [point.x, point.y]);
+  function getWidth() {
+    return Dimensions.get('window').width;
+  }
+  // console.log(getHeight(), getWidth());
+
+  function getHeight() {
+    return Dimensions.get('window').height;
   }
 
-  const pose1Coordinates: [number, number][] =
-    convertPoseDataToCoordinates(posesData); //Dữ liệu của người dùng
-  const pose2Coordinates: [number, number][] =
-    convertPoseDataToCoordinates(posesData); //Dữ liệu để tham chiếu
-
-  const maxPose1X = Math.max(...pose1Coordinates.map(([x, y]) => x));
-  const maxPose1Y = Math.max(...pose1Coordinates.map(([x, y]) => y));
-  const maxPose2X = Math.max(...pose2Coordinates.map(([x, y]) => x));
-  const maxPose2Y = Math.max(...pose2Coordinates.map(([x, y]) => y));
-
-  const normalizedPose1 = pose1Coordinates.map(([x, y]) => ({
-    x: x / maxPose1X,
-    y: y / maxPose1Y,
-  }));
-  const normalizedPose2 = pose2Coordinates.map(([x, y]) => ({
-    x: x / maxPose2X,
-    y: y / maxPose2Y,
-  }));
-
-  let p1 = [];
-  let p2 = [];
-
-  for (let joint = 0; joint < pose1Coordinates.length; joint++) {
-    const x1 = normalizedPose1[joint].x;
-    const y1 = normalizedPose1[joint].y;
-    const x2 = normalizedPose2[joint].x;
-    const y2 = normalizedPose2[joint].y;
-
-    p1.push(x1, y1);
-    p2.push(x2, y2);
-  }
-
-  const dotProduct = (pose1, pose2) => {
-    let sum = 0;
-    for (let i = 0; i < pose1.length; i++) {
-      sum += pose1[i] * pose2[i];
-    }
-    return sum;
+  const objectDetection = useTensorflowModel(require('./assets/light-single-unit8.tflite'));
+  const model =
+    objectDetection.state === 'loaded' ? objectDetection.model : undefined;
+  const isDarkMode = useColorScheme() === 'dark';
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const device = useCameraDevice('back');
+  const backgroundStyle = {
+    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
-
-  const norm = poseNorm => {
-    let sumOfSquares = 0;
-    for (let i = 0; i < poseNorm.length; i++) {
-      sumOfSquares += poseNorm[i] * poseNorm[i];
-    }
-    return Math.sqrt(sumOfSquares);
-  };
-
-  const cosine_distance = (poseCor1, poseCor2) => {
-    const dotProd = dotProduct(poseCor1, poseCor2);
-
-    const lengthPose1 = norm(poseCor1);
-    const lengthPose2 = norm(poseCor2);
-
-    const cossim = dotProd / (lengthPose1 * lengthPose2);
-
-    const cosdist = 1 - cossim;
-
-    return cosdist;
-  };
-
-  const scoreA = cosine_distance(p1, p2);
-
-  console.log(scoreA);
-
+  const handleSetCordinate = Worklets.createRunInJsFn(setCordinate);
   function isValidNormalizedValue(value: number): boolean {
     return value >= 0 && value <= 1;
   }
 
-  function normalizedToPixelCoordinates(
+  const normalizedToPixelCoordinates = (
     normalizedX: number,
     normalizedY: number,
     imageWidth: number,
-    imageHeight: number,
-  ): Tuple | null {
+    imageHeight: number
+  ): Tuple | null => {
     if (
       !isValidNormalizedValue(normalizedX) ||
       !isValidNormalizedValue(normalizedY)
@@ -241,36 +205,15 @@ function App(): React.JSX.Element {
     }
     const x: number = Math.min(
       Math.floor(normalizedX * imageWidth),
-      imageWidth - 1,
+      imageWidth - 1
     );
     const y: number = Math.min(
       Math.floor(normalizedY * imageHeight),
-      imageHeight - 1,
+      imageHeight - 1
     );
 
-    return {x, y};
-  }
-
-  function getWidth() {
-    return Dimensions.get('window').width;
-  }
-
-  function getHeight() {
-    return Dimensions.get('window').height;
-  }
-
-  const objectDetection = useTensorflowModel(require('./assets/4.tflite'));
-  const model =
-    objectDetection.state === 'loaded' ? objectDetection.model : undefined;
-  const isDarkMode = useColorScheme() === 'dark';
-  const {hasPermission, requestPermission} = useCameraPermission();
-  const device = useCameraDevice('back');
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+    return { x, y };
   };
-  // const handleSetData = Worklets.createRunInJsFn(setPoseData);
-  const handleSetCordinate = Worklets.createRunInJsFn(setCordinate);
-
   const frameProcessor = useFrameProcessor(
     frame => {
       'worklet';
@@ -303,7 +246,11 @@ function App(): React.JSX.Element {
             score,
           };
         });
+
+        // console.log(posesList);
+
         if (count.current % 1 === 0) {
+
           const data = keypoints.map(item => {
             const keyIndex = item.value;
             const y = output[keyIndex * 3];
@@ -317,12 +264,27 @@ function App(): React.JSX.Element {
               score,
             };
           });
+          // console.log("check pose", data);
           handleSetCordinate(data);
         }
       }
     },
     [model],
   );
+  // const dataDraw = Object.values(mockData).map(pose => {
+  //   const coordinate = normalizedToPixelCoordinates(
+  //     pose.x,
+  //     pose.y,
+  //     widthPreview,
+  //     heightPreview,
+  //   );
+  //   return {
+  //     ...pose,
+  //     x: coordinate?.x,
+  //     y: coordinate?.y,
+  //   };
+  // })
+  // console.log(dataDraw);
 
   return (
     <SafeAreaView style={backgroundStyle}>
@@ -336,6 +298,9 @@ function App(): React.JSX.Element {
         <View
           style={{
             backgroundColor: isDarkMode ? Colors.black : Colors.white,
+            // borderWidth: 1,
+            // borderColor: 'blue',
+            // height: 300
           }}>
           {device && hasPermission && (
             <Camera
@@ -347,24 +312,31 @@ function App(): React.JSX.Element {
           )}
           <Svg style={styles.canvas}>
             {posesData &&
-              posesData.map((item, index) => (
+              posesData.filter(item => item.score > MIN_SCORE).map((item, index) => (
                 <Circle key={index} r={5} cx={item.x} cy={item.y} fill="red" />
               ))}
+            {posesData && lines.map((item, index) => {
+              if (posesData[item[0]].score > MIN_SCORE && posesData[item[1]].score > MIN_SCORE) {
+                return <Line
+                  key={`skeletonkp_${index}`}
+                  x1={posesData[item[0]].x}
+                  y1={posesData[item[0]].y}
+                  x2={posesData[item[1]].x}
+                  y2={posesData[item[1]].y}
+                  stroke="red"
+                  strokeWidth="2"
+                />
+              } else {
+                return <></>
+              }
+            })}
+            {/* {dataDraw &&
+              dataDraw.map((item, index) => (
+                <Circle key={index} r={5} cx={item.x} cy={item.y} fill="red" />
+              ))} */}
+            {/* <Circle r={5} cx={192} cy={96} fill="red" /> */}
           </Svg>
-          {/* {lines.map((item, index) => (
-              <Line
-                key={index}
-                color={'red'}
-                p1={{
-                  x: posesData[item[0]].x * 192,
-                  y: posesData[item[0]].y * 192,
-                }}
-                p2={{
-                  x: posesData[item[1]].x * 192,
-                  y: posesData[item[1]].y * 192,
-                }}
-              />
-            ))} */}
+
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -389,13 +361,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   camera: {
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height,
+    // width: Dimensions.get("window").width,
+    // height: Dimensions.get("window").height,
+    width: widthPreview,
+    height: heightPreview,
   },
   canvas: {
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height,
+    // width: Dimensions.get("window").width,
+    // height: Dimensions.get("window").height,
+    width: widthPreview,
+    height: heightPreview,
     position: 'absolute',
+    // backgroundColor: 'green',
   },
 });
 
