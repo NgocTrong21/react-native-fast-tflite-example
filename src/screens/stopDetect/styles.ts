@@ -9,10 +9,11 @@ export const styles = StyleSheet.create({
   },
   header: {
     paddingVertical: 8,
-    alignItems: 'flex-end',
     justifyContent: 'center',
+    paddingHorizontal: 16,
   },
   button: {
+    alignSelf: 'flex-end',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#0492c9',

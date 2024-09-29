@@ -57,6 +57,8 @@ export const styles = (widthPreview: number, heightPreview: number) =>
       alignItems: 'center',
       position: 'absolute',
       zIndex: 999,
+      left: 0,
+      right: 0,
     },
     backButton: {
       padding: 10,
