@@ -1,13 +1,16 @@
-import React, {useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   Dimensions,
+  PermissionsAndroid,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
   useColorScheme,
   View,
 } from 'react-native';
-import {useTensorflowModel} from 'react-native-fast-tflite';
+import { useTensorflowModel } from 'react-native-fast-tflite';
 import {
   Camera,
   useCameraDevice,
@@ -15,12 +18,12 @@ import {
   useCameraPermission,
   useFrameProcessor,
 } from 'react-native-vision-camera';
-import {Colors} from 'react-native/Libraries/NewAppScreen';
-import {useResizePlugin} from 'vision-camera-resize-plugin';
-import {Svg, Circle, Line} from 'react-native-svg';
-import {NavigationProp, useNavigation} from '@react-navigation/native';
-import {AppRootParams} from '../../navigation/types';
-import {styles} from './styles';
+import { Colors } from 'react-native/Libraries/NewAppScreen';
+import { useResizePlugin } from 'vision-camera-resize-plugin';
+import { Svg, Circle, Line } from 'react-native-svg';
+import { NavigationProp, useNavigation } from '@react-navigation/native';
+import { AppRootParams } from '../../navigation/types';
+import { styles } from './styles';
 
 const MIN_SCORE = 0.2;
 const widthPreview = 400;
@@ -533,17 +536,58 @@ const connections = [
 ];
 
 const DetectScreen = () => {
-  const {navigate, goBack} = useNavigation<NavigationProp<AppRootParams>>();
+  const { navigate, goBack } = useNavigation<NavigationProp<AppRootParams>>();
   const count = React.useRef(0);
-  const {resize} = useResizePlugin();
+  const { resize } = useResizePlugin();
   const [posesData, setPoseData] = useState<any[]>();
   const [scorePoint, setScorePoint] = useState();
+  const [dataImage, setDataImage] = useState<any>([]);
+  const [showImage, setShowImage] = useState(false);
 
   const REVERSE_BODY_PART = {};
   for (const key in BODY_PARTS) {
     const value = BODY_PARTS[key];
     REVERSE_BODY_PART[value] = key;
   }
+  const androidVer = Platform.Version;
+
+  const requestLibraryAccessAndroid = async () => {
+    if (androidVer.toString() === '33') {
+      const permissions = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
+        PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO,
+        PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO,
+      ]);
+      return permissions['android.permission.READ_MEDIA_IMAGES'] ===
+        'granted' &&
+        permissions['android.permission.READ_MEDIA_VIDEO'] === 'granted' &&
+        permissions['android.permission.READ_MEDIA_AUDIO'] === 'granted'
+        ? true
+        : false;
+    } else {
+      const permission = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+      );
+
+      return permission === 'granted' ? true : false;
+    }
+  };
+
+  useEffect(() => {
+    const checkPermissions = async () => {
+      const hasAccess = await requestLibraryAccessAndroid();
+      if (!hasAccess) {
+        Alert.alert(
+          'Permission Denied',
+          'Cannot access media library without permission.',
+        );
+      } else {
+        console.log('Permission granted');
+      }
+    };
+
+    checkPermissions();
+  }, []);
 
   function convertPoseDataToCoordinates(poseData: any[]): [number, number][] {
     return poseData.map(point => [point.x, point.y]);
@@ -685,18 +729,39 @@ const DetectScreen = () => {
   }
 
   const objectDetection = useTensorflowModel(
-    require('./assets/pose_landmark_lite.tflite'),
+    require('../../../assets/pose_landmark_lite.tflite'),
   );
   const model =
     objectDetection.state === 'loaded' ? objectDetection.model : undefined;
   const isDarkMode = useColorScheme() === 'dark';
-  const {hasPermission, requestPermission} = useCameraPermission();
+  const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('front');
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
+
+  const saveData = async coordinates => {
+    try {
+      const jsonFileName = `coordinates_${Date.now()}.json`;
+      const jsonFilePath = `${RNFS.DownloadDirectoryPath}/${jsonFileName}`;
+      await RNFS.writeFile(jsonFilePath, JSON.stringify(coordinates), 'utf8');
+      await RNFS.copyFile(
+        jsonFilePath,
+        `${RNFS.ExternalStorageDirectoryPath}/Documents/${jsonFileName}`,
+      );
+    } catch (error) {
+      console.error('ERROR', error);
+    }
+  };
+
+  const saveDataImage = (float32Data: any) => {
+    setDataImage([...dataImage, float32Data]);
+  };
+
   const handleSetCoordinate = Worklets.createRunInJsFn(setCordinate);
   const handleCalcScoreDistance = Worklets.createRunInJsFn(setScoreDistance);
+  const handleSaveFile = Worklets.createRunInJsFn(saveData);
+  const handleCovertImage = Worklets.createRunInJsFn(saveDataImage);
 
   function isValidNormalizedValue(value: number): boolean {
     return value >= 0 && value <= 1;
@@ -723,7 +788,7 @@ const DetectScreen = () => {
       imageHeight - 1,
     );
 
-    return {x, y};
+    return { x, y };
   };
   const frameProcessor = useFrameProcessor(
     frame => {
@@ -742,27 +807,11 @@ const DetectScreen = () => {
         });
         // 2. Run model with given input buffer synchronously
 
-        if (count.current % 5 === 0) {
+        if (count.current % 10 === 0) {
           const outputs = model.runSync([resized]);
-
           const output = outputs[0];
-          // 3. Interpret outputs accordingly
-          // const posesList = keypoints.map(item => {
-          //   const keyIndex = item.value;
-          //   const x = output[keyIndex * 3];
-          //   const y = output[keyIndex * 3 + 1];
-          //   const score = output[keyIndex * 3 + 2];
-          //   const label = item.name;
-          //   return {
-          //     label,
-          //     x,
-          //     y,
-          //     score,
-          //   };
-          // });
-          // console.log(outputs[1]);
 
-          // console.log('checkoutputs', JSON.stringify(output.slice(0, 165)));
+          handleCovertImage(output);
           const data = thirtyThreeKPs.map(item => {
             const keyIndex = item.value;
             const x = (output[keyIndex * 5] as number) / 256;
@@ -773,30 +822,17 @@ const DetectScreen = () => {
               label,
               x: x,
               y: y,
-              // x: y,
-              // y: x,
               visibility,
             };
           });
-          // console.log('check data', JSON.stringify(data));
-
-          // const data = keypoints.map(item => {
-          //   const keyIndex = item.value;
-          //   const y = output[keyIndex * 3];
-          //   const x = output[keyIndex * 3 + 1];
-          //   const score = output[keyIndex * 3 + 2];
-          //   const label = item.name;
-          //   return {
-          //     label,
-          //     x: x,
-          //     y: y,
-          //     score,
-          //   };
-          // });
-          // console.log("check pose", data);
+          const bodyVisibleScore = data.filter(
+            item => item.visibility > 0.2,
+          ).length;
           handleSetCoordinate(data);
           handleCalcScoreDistance(data);
-          // handleDetectWrongPose(data);
+          if (bodyVisibleScore >= 12) {
+            handleSaveFile(data);
+          }
         }
       }
     },
@@ -804,8 +840,8 @@ const DetectScreen = () => {
   );
 
   const format = useCameraFormat(device, [
-    {videoAspectRatio: 4 / 3},
-    {videoResolution: {width: getWidth(), height: getHeight()}},
+    { videoAspectRatio: 4 / 3 },
+    { videoResolution: { width: getWidth(), height: getHeight() } },
   ]);
 
   const onStopDetect = () => {
@@ -844,7 +880,7 @@ const DetectScreen = () => {
             // width={widthPreview}
             // height={heightPreview}
             style={style.canvas}
-            // viewBox={`-${widthPreview} 0 ${widthPreview} ${heightPreview}`}
+          // viewBox={`-${widthPreview} 0 ${widthPreview} ${heightPreview}`}
           >
             {/* {posesData &&
              posesData.filter(item => item.score > MIN_SCORE).map((item, index) => (

@@ -15,9 +15,12 @@
     "@shopify/react-native-skia": "^1.0.4",
     "react": "18.2.0",
     "react-native": "0.73.6",
+    "react-native-canvas": "^0.1.40",
     "react-native-fast-tflite": "^1.2.0",
+    "react-native-fs": "^2.20.0",
     "react-native-svg": "^15.1.0",
     "react-native-vision-camera": "^3.9.2",
+    "react-native-webview": "^13.12.2",
     "react-native-worklets-core": "0.2.4",
     "vision-camera-resize-plugin": "^2.1.1"
   },
