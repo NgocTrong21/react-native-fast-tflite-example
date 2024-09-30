@@ -547,10 +547,13 @@ const DetectScreen = () => {
   const count = React.useRef(0);
   const { resize } = useResizePlugin();
   const [posesData, setPoseData] = useState<any[]>();
+  const [widthPreview, setWidthPreview] = useState(0);
+  const [heightPreview, setHeightPreview] = useState(0);
   const [scorePoint, setScorePoint] = useState();
   const [dataCanvas, setDataCanvas] = useState<string>([]);
   const [jsonData, setJsonData] = useState([]);
   const [listScore, setListScore] = useState([]);
+  const [isVisibleBody, setIsVisibleBody] = useState(false);
   const camRef = useRef<Camera>(null);
   const REVERSE_BODY_PART = {};
   for (const key in BODY_PARTS) {
@@ -993,6 +996,7 @@ const DetectScreen = () => {
   const handleSetCoordinate = Worklets.createRunInJsFn(setCordinate);
   const handleCalcScoreDistance = Worklets.createRunInJsFn(setScoreDistance);
   const handleSaveFile = Worklets.createRunInJsFn(saveData);
+  const handleSetIsVisibleBody = Worklets.createRunInJsFn(setIsVisibleBody);
   const handleSaveDataImage = Worklets.createRunInJsFn(saveDataImage);
 
   function isValidNormalizedValue(value: number): boolean {
@@ -1066,23 +1070,29 @@ const DetectScreen = () => {
               visibility,
             };
           });
+
+          // console.log('DATA POSE==========', data);
+
           const bodyVisibleScore = data.filter(
-            item => item.visibility > 0.2,
+            item => item.visibility > 3,
           ).length;
           handleSetCoordinate(data);
           handleCalcScoreDistance(data);
-          if (bodyVisibleScore >= 12) {
+          if (bodyVisibleScore >= 15) {
+            handleSetIsVisibleBody(true);
             handleSaveFile(data);
+          } else {
+            handleSetIsVisibleBody(false);
           }
         }
       }
     },
-    [model],
+    [model, widthPreview, heightPreview],
   );
 
   const format = useCameraFormat(device, [
     { videoAspectRatio: 4 / 3 },
-    { videoResolution: { width: getWidth(), height: getHeight() } },
+    { videoResolution: { width: 400, height: 400 / (3 / 4) } },
   ]);
 
   const onStopDetect = () => {
@@ -1104,12 +1114,20 @@ const DetectScreen = () => {
           <Text style={style.text}>Stop</Text>
         </TouchableOpacity>
       </View>
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
+      <View
+        style={{
+          flex: 1,
+          overflow: 'hidden',
+          width: '100%',
+        }}>
         <View
           style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
+            height: '75%',
+          }}
+          onLayout={event => {
+            const { width, height } = event.nativeEvent.layout;
+            setWidthPreview(width);
+            setHeightPreview(height);
           }}>
           {device && hasPermission && (
             <Camera
@@ -1123,8 +1141,8 @@ const DetectScreen = () => {
             />
           )}
           <Svg
-            // width={widthPreview}
-            // height={heightPreview}
+            width={widthPreview}
+            height={heightPreview}
             style={style.canvas}
           // viewBox={`-${widthPreview} 0 ${widthPreview} ${heightPreview}`}
           >
@@ -1133,6 +1151,7 @@ const DetectScreen = () => {
                <Circle key={index} r={5} cx={item.x} cy={item.y} fill="red" />
              ))} */}
             {posesData &&
+              isVisibleBody &&
               posesData.map((item, index) => (
                 <Circle
                   key={index}
@@ -1141,7 +1160,7 @@ const DetectScreen = () => {
                   // cy={item.x}
                   cx={item.x}
                   cy={item.y}
-                  fill={item.wrongPose ? 'red' : 'green'}
+                  fill={'green'}
                 />
                 // <Circle
                 //   key={index}
@@ -1152,6 +1171,7 @@ const DetectScreen = () => {
                 // />
               ))}
             {posesData &&
+              isVisibleBody &&
               connections.map((item, index) => {
                 // if (posesData[item[0]].score > MIN_SCORE && posesData[item[1]].score > MIN_SCORE) {
                 if (true) {
@@ -1215,7 +1235,7 @@ const DetectScreen = () => {
               })}
           </Svg>
         </View> */}
-      </ScrollView>
+      </View>
     </View>
   );
 };

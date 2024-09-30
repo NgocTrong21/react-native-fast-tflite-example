@@ -18,7 +18,7 @@ const StopDetectScreen = () => {
     for (const item of jsonData) {
       try {
         const jsonFileName = `coordinates_${Date.now()}.json`;
-        const jsonFilePath = `${RNFS.DownloadDirectoryPath}/${jsonFileName}`;
+        const jsonFilePath = `${RNFS.DocumentDirectoryPath}/${jsonFileName}`;
 
         await RNFS.writeFile(jsonFilePath, JSON.stringify(item), 'utf8');
 
