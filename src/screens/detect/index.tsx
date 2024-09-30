@@ -554,6 +554,7 @@ const DetectScreen = () => {
   const [jsonData, setJsonData] = useState([]);
   const [listScore, setListScore] = useState([]);
   const [isVisibleBody, setIsVisibleBody] = useState(false);
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
   const camRef = useRef<Camera>(null);
   const REVERSE_BODY_PART = {};
   for (const key in BODY_PARTS) {
@@ -912,7 +913,7 @@ const DetectScreen = () => {
     objectDetection.state === 'loaded' ? objectDetection.model : undefined;
   const isDarkMode = useColorScheme() === 'dark';
   const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('front');
+  const device = useCameraDevice(isFrontCamera ? 'front' : 'back');
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
@@ -1039,8 +1040,8 @@ const DetectScreen = () => {
           },
           pixelFormat: 'rgb',
           dataType: 'float32',
-          rotation: '270deg',
-          mirror: true,
+          rotation: isFrontCamera ? '270deg' : '90deg',
+          mirror: isFrontCamera ? true : false,
         });
 
         // 2. Run model with given input buffer synchronously
@@ -1087,7 +1088,7 @@ const DetectScreen = () => {
         }
       }
     },
-    [model, widthPreview, heightPreview],
+    [model, widthPreview, heightPreview, isFrontCamera],
   );
 
   const format = useCameraFormat(device, [
@@ -1102,6 +1103,10 @@ const DetectScreen = () => {
     });
   };
 
+  const onToggleCamera = () => {
+    setIsFrontCamera(prev => !prev);
+  };
+
   const style = styles(widthPreview, heightPreview);
 
   return (
@@ -1109,6 +1114,9 @@ const DetectScreen = () => {
       <View style={style.header}>
         <TouchableOpacity style={style.backButton} onPress={goBack}>
           <Text style={style.text}>Back</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={style.switchButton} onPress={onToggleCamera}>
+          <Text style={style.text}>Switch</Text>
         </TouchableOpacity>
         <TouchableOpacity style={style.button} onPress={onStopDetect}>
           <Text style={style.text}>Stop</Text>

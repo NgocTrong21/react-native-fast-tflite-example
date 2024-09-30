@@ -45,6 +45,14 @@ export const styles = (widthPreview: number, heightPreview: number) =>
       alignItems: 'center',
       borderRadius: 8,
     },
+    switchButton: {
+      paddingVertical: 16,
+      paddingHorizontal: 32,
+      backgroundColor: '#29af54',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: 8,
+    },
     text: {
       color: '#ffffff',
       fontSize: 14,
