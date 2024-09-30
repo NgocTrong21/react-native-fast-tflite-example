@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -535,21 +535,185 @@ const connections = [
   [30, 32],
 ];
 
+const bodyAnglePoints = [12, 24, 26];
+const neckAnglePoints = [11, 0, 12];
+const legAnglePoints = [24, 26, 28];
+const shoulderAnglePoints = [24, 12, 16];
+const elbowAnglePoints = [12, 14, 16];
+const handAnglePoints = [20, 16, 22];
+
 const DetectScreen = () => {
   const { navigate, goBack } = useNavigation<NavigationProp<AppRootParams>>();
   const count = React.useRef(0);
   const { resize } = useResizePlugin();
   const [posesData, setPoseData] = useState<any[]>();
   const [scorePoint, setScorePoint] = useState();
-  const [dataImage, setDataImage] = useState<any>([]);
-  const [showImage, setShowImage] = useState(false);
-
+  const [dataCanvas, setDataCanvas] = useState<string>([]);
+  const [jsonData, setJsonData] = useState([]);
+  const [listScore, setListScore] = useState([]);
+  const camRef = useRef<Camera>(null);
   const REVERSE_BODY_PART = {};
   for (const key in BODY_PARTS) {
     const value = BODY_PARTS[key];
     REVERSE_BODY_PART[value] = key;
   }
   const androidVer = Platform.Version;
+
+  const rebaA = (body_angle, neck_angle, leg_angle) => {
+    let body_score = 0;
+    let neck_score = 0;
+    let leg_score = 0;
+
+    const a_reba_a = [
+      [
+        [1, 2, 3, 4],
+        [1, 2, 3, 4],
+        [3, 3, 5, 6],
+      ],
+      [
+        [2, 3, 4, 5],
+        [3, 4, 5, 6],
+        [4, 5, 6, 7],
+      ],
+      [
+        [2, 4, 5, 6],
+        [4, 5, 6, 7],
+        [5, 6, 7, 8],
+      ],
+      [
+        [3, 5, 6, 7],
+        [5, 6, 7, 8],
+        [6, 7, 8, 9],
+      ],
+      [
+        [4, 6, 7, 8],
+        [6, 7, 8, 9],
+        [7, 8, 9, 9],
+      ],
+    ];
+
+    if (body_angle > 195 && body_angle < 210) {
+      body_score = 2;
+    } else if (body_angle >= 180 && body_angle <= 195) {
+      body_score = 1;
+    } else if (body_angle < 180 && body_angle > 160) {
+      body_score = 2;
+    } else if (body_angle <= 160 && body_angle >= 120) {
+      body_score = 3;
+    } else if (body_angle > 210) {
+      body_score = 3;
+    } else if (body_angle < 120) {
+      body_score = 4;
+    }
+
+    if (neck_angle < 215 && neck_angle > 95) {
+      neck_score = 1;
+    } else if (neck_angle >= 215) {
+      neck_score = 2;
+    } else if (neck_angle < 95) {
+      neck_score = 3;
+    }
+
+    if (leg_angle >= 190 && leg_angle <= 220) {
+      leg_score = 1;
+    } else if (leg_angle > 220 && leg_angle <= 250) {
+      leg_score = 2;
+    } else {
+      leg_score = 2;
+    }
+
+    return {
+      scoreA: a_reba_a[body_score - 1][neck_score - 1][leg_score - 1],
+      body_score,
+      neck_score,
+      leg_score,
+    };
+  };
+
+  const rebaB = (shoulder_angle, elbow_angle, hand_angle) => {
+    let shoulder_score = 0;
+    let elbow_score = 0;
+    let hand_score = 0;
+
+    const a_reba_b = [
+      [
+        [1, 2, 2],
+        [1, 2, 3],
+      ],
+      [
+        [1, 2, 3],
+        [2, 3, 4],
+      ],
+      [
+        [3, 4, 5],
+        [4, 5, 5],
+      ],
+      [
+        [4, 5, 6],
+        [5, 6, 7],
+      ],
+      [
+        [6, 7, 8],
+        [7, 8, 8],
+      ],
+      [
+        [7, 8, 8],
+        [8, 9, 0],
+      ],
+    ];
+
+    if (shoulder_angle <= 360 && shoulder_angle >= 340) {
+      shoulder_score = 1;
+    } else if (shoulder_angle >= 340) {
+      shoulder_score = 2;
+    } else if (shoulder_angle > 20 && shoulder_angle < 45) {
+      shoulder_score = 2;
+    } else if (shoulder_angle >= 45 && shoulder_angle <= 90) {
+      shoulder_score = 3;
+    } else if (shoulder_angle > 90) {
+      shoulder_score = 4;
+    }
+
+    if (elbow_angle >= 80 && elbow_angle <= 120) {
+      elbow_score = 1;
+    } else if (elbow_angle >= 0 && elbow_angle < 80) {
+      elbow_score = 2;
+    } else if (elbow_angle > 120) {
+      elbow_score = 2;
+    }
+
+    if (hand_angle >= 0 && hand_angle <= 30) {
+      hand_score = 1;
+    } else if (hand_angle > 30) {
+      hand_score = 2;
+    }
+
+    return {
+      scoreB: a_reba_b[shoulder_score - 1][elbow_score - 1][hand_score - 1],
+      shoulder_score,
+      elbow_score,
+      hand_score,
+    };
+  };
+
+  const rebaC = (reba_a_score, reba_b_score) => {
+    const a_reba_c = [
+      [1, 1, 1, 2, 3, 3, 4, 5, 6, 7, 7, 7],
+      [1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 7, 8],
+      [2, 3, 3, 3, 4, 5, 6, 7, 7, 8, 8, 8],
+      [3, 4, 4, 4, 5, 6, 7, 8, 8, 9, 9, 9],
+      [4, 4, 4, 5, 6, 7, 8, 8, 9, 9, 9, 9],
+      [6, 6, 6, 7, 8, 8, 9, 9, 10, 10, 10, 10],
+      [7, 7, 7, 8, 9, 9, 9, 10, 10, 11, 11, 11],
+      [8, 8, 8, 9, 10, 10, 10, 10, 10, 11, 11, 11],
+      [9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 12],
+      [10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12, 12],
+      [11, 11, 11, 11, 12, 12, 12, 12, 12, 12, 12, 12],
+      [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12],
+    ];
+
+    return a_reba_c[reba_a_score - 1][reba_b_score - 1];
+  };
 
   const requestLibraryAccessAndroid = async () => {
     if (androidVer.toString() === '33') {
@@ -565,6 +729,7 @@ const DetectScreen = () => {
         ? true
         : false;
     } else {
+      console.log('ANDROID VERSION NOT 33');
       const permission = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
       );
@@ -575,6 +740,7 @@ const DetectScreen = () => {
 
   useEffect(() => {
     const checkPermissions = async () => {
+      await requestPermission();
       const hasAccess = await requestLibraryAccessAndroid();
       if (!hasAccess) {
         Alert.alert(
@@ -591,6 +757,14 @@ const DetectScreen = () => {
 
   function convertPoseDataToCoordinates(poseData: any[]): [number, number][] {
     return poseData.map(point => [point.x, point.y]);
+  }
+
+  function new_calculate_angle(P1, P2, P3) {
+    const result =
+      Math.atan2(P3.y - P1.y, P3.x - P1.x) -
+      Math.atan2(P2.y - P1.y, P2.x - P1.x);
+    const resultDegree = result * (180 / Math.PI);
+    return resultDegree < 0 ? 360 + resultDegree : resultDegree;
   }
 
   function calculate_angle(P1, P2, P3) {
@@ -741,27 +915,85 @@ const DetectScreen = () => {
   };
 
   const saveData = async coordinates => {
-    try {
-      const jsonFileName = `coordinates_${Date.now()}.json`;
-      const jsonFilePath = `${RNFS.DownloadDirectoryPath}/${jsonFileName}`;
-      await RNFS.writeFile(jsonFilePath, JSON.stringify(coordinates), 'utf8');
-      await RNFS.copyFile(
-        jsonFilePath,
-        `${RNFS.ExternalStorageDirectoryPath}/Documents/${jsonFileName}`,
+    const bodyAngle = new_calculate_angle(
+      coordinates[bodyAnglePoints[0]],
+      coordinates[bodyAnglePoints[1]],
+      coordinates[bodyAnglePoints[2]],
+    );
+    const neckAngle = new_calculate_angle(
+      coordinates[neckAnglePoints[0]],
+      coordinates[neckAnglePoints[1]],
+      coordinates[neckAnglePoints[2]],
+    );
+    const legAngle = new_calculate_angle(
+      coordinates[legAnglePoints[0]],
+      coordinates[legAnglePoints[1]],
+      coordinates[legAnglePoints[2]],
+    );
+
+    const rebaAData = rebaA(bodyAngle, neckAngle, legAngle);
+    const rebaAScore = rebaA(bodyAngle, neckAngle, legAngle).scoreA;
+
+    const shoulderAngle = new_calculate_angle(
+      coordinates[shoulderAnglePoints[0]],
+      coordinates[shoulderAnglePoints[1]],
+      coordinates[shoulderAnglePoints[2]],
+    );
+    const elbowAngle =
+      180 -
+      new_calculate_angle(
+        coordinates[elbowAnglePoints[0]],
+        coordinates[elbowAnglePoints[1]],
+        coordinates[elbowAnglePoints[2]],
       );
-    } catch (error) {
-      console.error('ERROR', error);
-    }
+    const handAngle = new_calculate_angle(
+      coordinates[handAnglePoints[0]],
+      coordinates[handAnglePoints[1]],
+      coordinates[handAnglePoints[2]],
+    );
+    const rebaBData = rebaB(shoulderAngle, elbowAngle, handAngle);
+    const rebaBScore = rebaB(shoulderAngle, elbowAngle, handAngle).scoreB;
+    const finalScore = rebaC(rebaAScore, rebaBScore);
+
+    const finalData = {
+      mode: '',
+      selected: 0,
+      task: '',
+      time: '',
+      image: '' + '.jpg',
+      body: rebaAData.body_score,
+      neck: rebaAData.neck_score,
+      leg: rebaAData.leg_score,
+      weight: '',
+      shoulder: rebaBData.shoulder_score,
+      elbow: rebaBData.elbow_score,
+      wrist: rebaBData.hand_score,
+      handle: '',
+    };
+    setJsonData(prevJsonData => [...prevJsonData, finalData]);
+    setListScore(prevListScore => [...prevListScore, finalScore]);
+
+    // try {
+    //   const jsonFileName = `coordinates_${Date.now()}.json`;
+    //   const jsonFilePath = `${RNFS.DownloadDirectoryPath}/${jsonFileName}`;
+    //   await RNFS.writeFile(jsonFilePath, JSON.stringify(finalData), 'utf8');
+    //   await RNFS.copyFile(
+    //     jsonFilePath,
+    //     `${RNFS.ExternalStorageDirectoryPath}/Download/${jsonFileName}`,
+    //   );
+    // } catch (error) {
+    //   console.error('ERROR', error);
+    // }
   };
 
-  const saveDataImage = (float32Data: any) => {
-    setDataImage([...dataImage, float32Data]);
+  const saveDataImage = float32Array => {
+    setDataCanvas([...dataCanvas, float32Array]);
   };
 
   const handleSetCoordinate = Worklets.createRunInJsFn(setCordinate);
   const handleCalcScoreDistance = Worklets.createRunInJsFn(setScoreDistance);
   const handleSaveFile = Worklets.createRunInJsFn(saveData);
-  const handleCovertImage = Worklets.createRunInJsFn(saveDataImage);
+  const handleSaveDataImage = Worklets.createRunInJsFn(saveDataImage);
 
   function isValidNormalizedValue(value: number): boolean {
     return value >= 0 && value <= 1;
@@ -790,6 +1022,7 @@ const DetectScreen = () => {
 
     return { x, y };
   };
+
   const frameProcessor = useFrameProcessor(
     frame => {
       'worklet';
@@ -805,13 +1038,21 @@ const DetectScreen = () => {
           rotation: '270deg',
           mirror: true,
         });
+
         // 2. Run model with given input buffer synchronously
 
         if (count.current % 10 === 0) {
           const outputs = model.runSync([resized]);
           const output = outputs[0];
+          // handleCovertImage(outputs);
+          // dataCanvas = [...dataCanvas, resized];
+          // const buffer = frame.toArrayBuffer();
+          // const dataTest = new Uint8Array(buffer);
+          // dataArrayRef.current.push(dataTest);
+          // handleSaveDataImage(dataTest);
+          // dataTest = [...dataTest, dataTest];
+          // dataImageTest.push(dataTest);
 
-          handleCovertImage(output);
           const data = thirtyThreeKPs.map(item => {
             const keyIndex = item.value;
             const x = (output[keyIndex * 5] as number) / 256;
@@ -845,7 +1086,10 @@ const DetectScreen = () => {
   ]);
 
   const onStopDetect = () => {
-    navigate('StopDetectScreen');
+    navigate('StopDetectScreen', {
+      jsonData: jsonData,
+      scoreData: listScore,
+    });
   };
 
   const style = styles(widthPreview, heightPreview);
@@ -874,6 +1118,8 @@ const DetectScreen = () => {
               device={device}
               isActive={true}
               format={format}
+              ref={camRef}
+              photo={true}
             />
           )}
           <Svg

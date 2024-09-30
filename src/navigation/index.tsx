@@ -1,12 +1,13 @@
 import * as React from 'react';
-import {NavigationContainer, useRoute} from '@react-navigation/native';
-import {SafeAreaView, StatusBar, useColorScheme} from 'react-native';
-import {Colors} from 'react-native/Libraries/NewAppScreen';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import {AppRootParams} from './types';
+import { NavigationContainer, useRoute } from '@react-navigation/native';
+import { SafeAreaView, StatusBar, useColorScheme } from 'react-native';
+import { Colors } from 'react-native/Libraries/NewAppScreen';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { AppRootParams } from './types';
 import StartDetectScreen from '../screens/startDetect';
 import DetectScreen from '../screens/detect';
 import StopDetectScreen from '../screens/stopDetect';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 const AppStack = createNativeStackNavigator<AppRootParams>();
 
@@ -32,7 +33,7 @@ const NavigationRouter = () => {
   };
 
   return (
-    <SafeAreaView>
+    <SafeAreaProvider>
       <NavigationContainer>
         <StatusBar
           barStyle={'light-content'}
@@ -40,7 +41,7 @@ const NavigationRouter = () => {
         />
         <RootStackNavigator />
       </NavigationContainer>
-    </SafeAreaView>
+    </SafeAreaProvider>
   );
 };
 

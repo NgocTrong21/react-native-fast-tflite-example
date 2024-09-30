@@ -4,8 +4,6 @@ export const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
   },
   header: {
     paddingVertical: 8,
@@ -21,15 +19,16 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 8,
   },
-  text: {
+  scoreText: {
     color: '#ffffff',
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 20,
   },
   detectItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
   },
   score: {
     padding: 4,
@@ -38,12 +37,24 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 4,
   },
-  scoreText: {
-    color: '#ffffff',
-    fontSize: 12,
-    lineHeight: 18,
+  poseText: {
+    color: 'black',
+    fontSize: 20,
   },
   separator: {
     height: 16,
+  },
+  poseColumn: {},
+  scoreColumn: {
+    padding: 8,
+    backgroundColor: '#0aa854',
+  },
+  titleStyle: {
+    fontSize: 24,
+    alignSelf: 'center',
+  },
+  text: {
+    color: '#ffffff',
+    fontSize: 14,
   },
 });
