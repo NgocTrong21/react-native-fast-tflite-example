@@ -24,6 +24,11 @@ import { Svg, Circle, Line } from 'react-native-svg';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import { AppRootParams } from '../../navigation/types';
 import { styles } from './styles';
+import RNFS from 'react-native-fs';
+import jpeg from 'jpeg-js';
+import { Buffer } from 'buffer';
+import { log } from 'console';
+global.Buffer = global.Buffer || Buffer;
 
 const MIN_SCORE = 0.2;
 const widthPreview = 400;
@@ -555,7 +560,9 @@ const DetectScreen = () => {
   const [listScore, setListScore] = useState([]);
   const [isVisibleBody, setIsVisibleBody] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(true);
+  const [countFrameDetect, setCountFrameDetect] = useState<number[]>([]);
   const camRef = useRef<Camera>(null);
+  const [downloadPath, setDownloadPath] = useState<string>();
   const REVERSE_BODY_PART = {};
   for (const key in BODY_PARTS) {
     const value = BODY_PARTS[key];
@@ -729,7 +736,10 @@ const DetectScreen = () => {
       return permissions['android.permission.READ_MEDIA_IMAGES'] ===
         'granted' &&
         permissions['android.permission.READ_MEDIA_VIDEO'] === 'granted' &&
-        permissions['android.permission.READ_MEDIA_AUDIO'] === 'granted'
+        permissions['android.permission.READ_MEDIA_AUDIO'] === 'granted' &&
+        permissions['android.permission.WRITE_EXTERNAL_STORAGE'] ===
+        'granted' &&
+        permissions['android.permission.READ_EXTERNAL_STORAGE'] === 'granted'
         ? true
         : false;
     } else {
@@ -757,6 +767,8 @@ const DetectScreen = () => {
     };
 
     checkPermissions();
+
+    startRecording();
   }, []);
 
   function convertPoseDataToCoordinates(poseData: any[]): [number, number][] {
@@ -898,14 +910,6 @@ const DetectScreen = () => {
     setScorePoint(cosine_distance(p1, p2));
   };
 
-  function getWidth() {
-    return Dimensions.get('window').width;
-  }
-
-  function getHeight() {
-    return Dimensions.get('window').height;
-  }
-
   const objectDetection = useTensorflowModel(
     require('../../../assets/pose_landmark_lite.tflite'),
   );
@@ -914,11 +918,8 @@ const DetectScreen = () => {
   const isDarkMode = useColorScheme() === 'dark';
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice(isFrontCamera ? 'front' : 'back');
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
 
-  const saveData = async coordinates => {
+  const saveData = async (coordinates, count) => {
     const bodyAngle = new_calculate_angle(
       coordinates[bodyAnglePoints[0]],
       coordinates[bodyAnglePoints[1]],
@@ -974,8 +975,10 @@ const DetectScreen = () => {
       wrist: rebaBData.hand_score,
       handle: '',
     };
+
     setJsonData(prevJsonData => [...prevJsonData, finalData]);
     setListScore(prevListScore => [...prevListScore, finalScore]);
+    setCountFrameDetect(prevCountFrame => [...prevCountFrame, count]);
 
     // try {
     //   const jsonFileName = `coordinates_${Date.now()}.json`;
@@ -990,15 +993,146 @@ const DetectScreen = () => {
     // }
   };
 
-  const saveDataImage = float32Array => {
-    setDataCanvas([...dataCanvas, float32Array]);
+  // const float32ToBase64Chunks = (float32Array, chunkSize) => {
+  //   const base64Chunks = [];
+
+  //   for (let i = 0; i < float32Array.length; i += chunkSize) {
+  //     // Lấy phần mảng con
+  //     const chunk = float32Array.slice(i, i + chunkSize);
+
+  //     // Chuyển đổi chunk sang Uint8Array
+  //     const uint8Array = new Uint8Array(chunk.buffer);
+
+  //     // Chuyển đổi Uint8Array thành Base64
+  //     const base64String = uint8ArrayToBase64(uint8Array);
+
+  //     base64Chunks.push(base64String);
+  //   }
+
+  //   return base64Chunks;
+  // };
+
+  // // Hàm chuyển đổi Uint8Array sang Base64
+  // const uint8ArrayToBase64 = uint8Array => {
+  //   // Chuyển đổi Uint8Array thành Buffer
+  //   const buffer = Buffer.from(uint8Array);
+  //   // Chuyển đổi Buffer thành Base64
+  //   return buffer.toString('base64');
+  // };
+
+  const saveFrameAsImage = async float32Array => {
+    try {
+      // Chuyển đổi base64 thành Buffer
+      // console.log('Base 64', base64Data);
+      // const buffer = Buffer.from(base64Data, 'base64');
+
+      // // Bạn có thể xử lý buffer thành ảnh JPEG (ví dụ sử dụng jpeg-js)
+      // const width = 1280; // Kích thước ảnh, có thể thay đổi theo frame thực tế
+      // const height = 720;
+      // const rawImageData = {
+      //   data: frame.toArrayBuffer(),
+      //   width: 256,
+      //   height: 256,
+      // };
+      // const arrayBuffer = frame.toArrayBuffer(); // Chuyển đổi sang ArrayBuffer
+
+      // const frameCopy = deepCopyFrame(frame);
+
+      // const chunkSize = 10000; // Kích thước mảnh nhỏ
+      // const base64Parts = [];
+      // const numChunks = Math.ceil(float32Array.length / chunkSize);
+
+      // for (let i = 0; i < numChunks; i++) {
+      //   const chunk = float32Array.slice(i * chunkSize, (i + 1) * chunkSize);
+      //   const imageData = new Uint8Array(chunk.buffer);
+      //   const base64Data = Buffer.from(imageData).toString('base64');
+      //   base64Parts.push(base64Data);
+      // }
+
+      // // Kết hợp các phần lại với nhau nếu cần thiết
+      // const fullBase64Data = base64Parts.join('');
+      const fullBase64Data = float32ToBase64Chunks(float32Array, 4);
+
+      console.log('fullBase64Data', fullBase64Data);
+      const filePath = `${RNFS.DownloadDirectoryPath}/frame_${Date.now()}.jpg`;
+      await RNFS.writeFile(filePath, fullBase64Data, 'base64');
+
+      // // Chuyển buffer thành định dạng JPEG
+      // const jpegImageData = jpeg.encode(rawImageData, 90); // 90% chất lượng JPEG
+
+      // // Tạo đường dẫn file
+      // const fileName = `frame_${Date.now()}.jpg`;
+      // const filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
+
+      // // Lưu file dưới dạng base64
+      // await RNFS.writeFile(
+      //   filePath,
+      //   jpegImageData.data.toString('base64'),
+      //   'base64',
+      // );
+    } catch (error) {
+      console.error('Error saving image:', error);
+    }
+  };
+
+  const saveImageFromFloat32 = async arrayBuffer => {
+    try {
+      // // console.log('data', arrayBuffer);
+      // const float32Array = new Float32Array(arrayBuffer.buffer);
+      // const chunkSize = 10000; // Kích thước mảnh nhỏ
+      // const base64Parts = [];
+      // const numChunks = Math.ceil(float32Array.length / chunkSize);
+
+      // console.log('numChunks', numChunks);
+      // console.log('length', float32Array);
+      // for (let i = 0; i < numChunks; i++) {
+      //   const chunk = float32Array.slice(i * chunkSize, (i + 1) * chunkSize);
+      //   const imageData = new Uint8Array(chunk.buffer);
+      //   const base64Data = Buffer.from(imageData).toString('base64');
+      //   base64Parts.push(base64Data);
+      // }
+
+      // // Kết hợp các phần lại với nhau nếu cần thiết
+      // const fullBase64Data = base64Parts.join('');
+      // console.log('fullBase64Data', fullBase64Data);
+
+      // const filePath = `${RNFS.DownloadDirectoryPath}/image_${Date.now()}.png`;
+      // await RNFS.writeFile(filePath, fullBase64Data, 'base64');
+
+      const base64Image = convertUint8ArrayToBase64(arrayBuffer);
+      saveImage(base64Image);
+    } catch (error) {
+      console.error('Error saving image:', error);
+    }
+  };
+
+  const convertUint8ArrayToBase64 = uint8Array => {
+    // Chuyển đổi Uint8Array thành Base64
+    let binary = '';
+    const len = uint8Array.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    return `data:image/png;base64,${btoa(binary)}`; // Giả sử đây là PNG
+  };
+
+  // Hàm để lưu hình ảnh
+  const saveImage = async base64Data => {
+    // Đường dẫn lưu file
+    const path = `${RNFS.DownloadDirectoryPath}/image.png`;
+    // Ghi file
+    try {
+      await RNFS.writeFile(path, base64Data, 'base64');
+      console.log('Hình ảnh đã được lưu tại:', path);
+    } catch (error) {
+      console.error('Lỗi khi lưu hình ảnh:', error);
+    }
   };
 
   const handleSetCoordinate = Worklets.createRunInJsFn(setCordinate);
   const handleCalcScoreDistance = Worklets.createRunInJsFn(setScoreDistance);
   const handleSaveFile = Worklets.createRunInJsFn(saveData);
   const handleSetIsVisibleBody = Worklets.createRunInJsFn(setIsVisibleBody);
-  const handleSaveDataImage = Worklets.createRunInJsFn(saveDataImage);
 
   function isValidNormalizedValue(value: number): boolean {
     return value >= 0 && value <= 1;
@@ -1027,26 +1161,30 @@ const DetectScreen = () => {
 
     return { x, y };
   };
+  const lastFrameTime = useRef(Date.now());
 
   const frameProcessor = useFrameProcessor(
     frame => {
       'worklet';
-      if (model) {
+      const currentTime = Date.now();
+
+      if (currentTime - lastFrameTime.current > 1000) {
+        lastFrameTime.current = currentTime;
         count.current++;
-        const resized = resize(frame, {
-          scale: {
-            width: 256,
-            height: 256,
-          },
-          pixelFormat: 'rgb',
-          dataType: 'float32',
-          rotation: isFrontCamera ? '270deg' : '90deg',
-          mirror: isFrontCamera ? true : false,
-        });
+        if (model) {
+          const resized = resize(frame, {
+            scale: {
+              width: 256,
+              height: 256,
+            },
+            pixelFormat: 'rgb',
+            dataType: 'float32',
+            rotation: isFrontCamera ? '270deg' : '90deg',
+            mirror: isFrontCamera ? true : false,
+          });
 
-        // 2. Run model with given input buffer synchronously
+          // 2. Run model with given input buffer synchronously
 
-        if (count.current % 10 === 0) {
           const outputs = model.runSync([resized]);
           const output = outputs[0];
           // handleCovertImage(outputs);
@@ -1072,8 +1210,6 @@ const DetectScreen = () => {
             };
           });
 
-          // console.log('DATA POSE==========', data);
-
           const bodyVisibleScore = data.filter(
             item => item.visibility > 3,
           ).length;
@@ -1081,7 +1217,24 @@ const DetectScreen = () => {
           handleCalcScoreDistance(data);
           if (bodyVisibleScore >= 15) {
             handleSetIsVisibleBody(true);
-            handleSaveFile(data);
+            handleSaveFile(data, count.current);
+            // const base64Image = frame.toString(); // toBase64 là giả định cho dữ liệu ảnh
+            // console.log('Frame data', resized.toString);
+            // // const base64Data = frame.data.toString('base64');
+            // let frameCopy = handleDeepCopy(frame);
+            //handleSaveImage(frame);
+            // const resizedGloat32 = resize(frame, {
+            //   scale: {
+            //     width: 50,
+            //     height: 50,
+            //   },
+            //   pixelFormat: 'rgb',
+            //   dataType: 'float32',
+            //   rotation: isFrontCamera ? '270deg' : '90deg',
+            //   mirror: isFrontCamera ? true : false,
+            // });
+            // const uint8Array = new Uint8Array(frame.toArrayBuffer());
+            // handleSaveImage(uint8Array);
           } else {
             handleSetIsVisibleBody(false);
           }
@@ -1096,11 +1249,59 @@ const DetectScreen = () => {
     { videoResolution: { width: 400, height: 400 / (3 / 4) } },
   ]);
 
+  const [filePath, setFilePath] = useState('');
+
+  useEffect(() => {
+    if (filePath !== '') {
+      navigate('StopDetectScreen', {
+        jsonData: jsonData,
+        scoreData: listScore,
+        countFrameList: countFrameDetect,
+        namePath: filePath,
+      });
+    }
+
+    return () => {
+      setFilePath('');
+      console.log(`Cleaning up for count: ${filePath}`);
+    };
+  }, [filePath, jsonData, countFrameDetect, listScore]); // Only runs when 'count' changes
+
+  const startRecording = () => {
+    if (camRef.current) {
+      camRef.current.startRecording({
+        onRecordingFinished: video => {
+          saveVideoToDownloads(video.path);
+        },
+        onRecordingError: error => console.error(error),
+      });
+    }
+  };
+
+  const saveVideoToDownloads = async uri => {
+    const downloadPath = `${RNFS.DownloadDirectoryPath}/${Date.now()}.mp4`;
+    setDownloadPath(downloadPath);
+    try {
+      await RNFS.moveFile(uri, downloadPath);
+      setFilePath(downloadPath);
+    } catch (error) {
+      console.error('Error saving video to downloads:', error);
+      Alert.alert('Error', 'Could not save video to downloads');
+    }
+  };
+
+  const stopRecording = async () => {
+    if (camRef.current) {
+      try {
+        await camRef.current.stopRecording();
+      } catch (error) {
+        console.error('Lỗi khi dừng ghi video:', error);
+      }
+    }
+  };
+
   const onStopDetect = () => {
-    navigate('StopDetectScreen', {
-      jsonData: jsonData,
-      scoreData: listScore,
-    });
+    stopRecording();
   };
 
   const onToggleCamera = () => {

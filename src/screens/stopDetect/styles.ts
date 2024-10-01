@@ -3,7 +3,6 @@ import {StyleSheet} from 'react-native';
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
   },
   header: {
     paddingVertical: 8,
@@ -12,6 +11,14 @@ export const styles = StyleSheet.create({
   },
   button: {
     alignSelf: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#0492c9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  buttonTest: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#0492c9',

@@ -9,14 +9,55 @@ import {
 import { styles } from './styles';
 import { useRoute } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
+import { FFmpegKit, ReturnCode } from 'ffmpeg-kit-react-native';
+import { useEffect, useRef, useState } from 'react';
 
 const StopDetectScreen = () => {
   const route = useRoute();
-  const { jsonData, scoreData } = route.params;
+  const { jsonData, scoreData, countFrameList = [], namePath } = route.params;
+  const [extractedFrames, setExtractedFrames] = useState([]);
+
+  useEffect(() => {
+    if (countFrameList.length > 0) {
+      extractFramesFromVideo();
+    }
+  }, [countFrameList]);
+
+  const extractFramesFromVideo = async () => {
+    try {
+      const frameIndices = countFrameList;
+      await extractFrames(namePath, frameIndices);
+    } catch (error) {
+      console.error('Error extracting frames:', error);
+    }
+  };
+
+  console.log('countFrameList', countFrameList);
+
+  const extractFrames = async (videoPath, frameIndices) => {
+    const outputDir = `${RNFS.DownloadDirectoryPath}`;
+    const extractedFramePaths = [];
+
+    for (const frameTime of frameIndices) {
+      const outputFileName = `${outputDir}/frame_${frameTime}_${Date.now()}.png`;
+      const command = `-ss ${frameTime} -i ${videoPath} -frames:v 1 ${outputFileName}`;
+
+      const session = await FFmpegKit.execute(command);
+      const returnCode = await session.getReturnCode();
+
+      if (ReturnCode.isSuccess(returnCode)) {
+        extractedFramePaths.push(`file://${outputFileName}`);
+      } else {
+        console.error(`Error extracting frame at time: ${frameTime}`);
+      }
+    }
+
+    setExtractedFrames(extractedFramePaths);
+  };
 
   const onSaveData = async () => {
-    for (const item of jsonData) {
-      try {
+    try {
+      for (const item of jsonData) {
         const jsonFileName = `coordinates_${Date.now()}.json`;
         const jsonFilePath = `${RNFS.DocumentDirectoryPath}/${jsonFileName}`;
 
@@ -26,18 +67,17 @@ const StopDetectScreen = () => {
           jsonFilePath,
           `${RNFS.ExternalStorageDirectoryPath}/Download/${jsonFileName}`,
         );
-      } catch (error) {
-        console.error('ERROR', error);
-        Alert.alert('Error', 'Failed to save data');
-        return;
       }
+      Alert.alert('Success', 'Data saved successfully!');
+    } catch (error) {
+      console.error('Error saving data:', error);
     }
-    Alert.alert('Success', 'Data saved successfully!');
   };
 
-  const combinedData = jsonData.map((pose, index) => ({
+  const combinedList = jsonData.map((pose, index) => ({
     pose: `Pose ${index + 1}`,
     score: scoreData[index] || 0,
+    frame: extractedFrames[index] || null,
   }));
 
   return (
@@ -47,26 +87,26 @@ const StopDetectScreen = () => {
           <Text style={styles.text}>Save</Text>
         </TouchableOpacity>
       </View>
+
       <Text style={styles.titleStyle}>POSE LIST</Text>
-      <View>
-        <View style={styles.detectItem}>
-          <View style={styles.poseColumn}>
-            <Text style={styles.poseText}>Pose Frame</Text>
-          </View>
-          <View style={styles.poseColumn}>
-            <Text style={styles.poseText}>Pose Score</Text>
-          </View>
-        </View>
-      </View>
+
       <FlatList
+        data={combinedList}
         keyExtractor={(_, index) => '' + index}
-        data={combinedData}
-        numColumns={1}
-        showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
           <View style={styles.detectItem}>
             <View style={styles.poseColumn}>
-              <Text style={styles.poseText}>{item.pose}</Text>
+              {item.frame ? (
+                <Image
+                  source={{ uri: item.frame }}
+                  style={{ width: 100, height: 100, marginRight: 10 }}
+                />
+              ) : (
+                <Text style={styles.poseText}>No Frame</Text>
+              )}
+            </View>
+            <View style={styles.poseColumn}>
+              <Text style={styles.poseText}>{item.pose}:</Text>
             </View>
             <View style={styles.scoreColumn}>
               <Text style={styles.scoreText}>{item.score}</Text>
@@ -74,7 +114,6 @@ const StopDetectScreen = () => {
           </View>
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        extraData={combinedData.length}
       />
     </View>
   );
