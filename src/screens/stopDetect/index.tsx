@@ -33,6 +33,7 @@ const StopDetectScreen = () => {
   };
 
   console.log('countFrameList', countFrameList);
+  console.log('extractedFrames', extractedFrames);
 
   const extractFrames = async (videoPath, frameIndices) => {
     const outputDir = `${RNFS.DownloadDirectoryPath}`;

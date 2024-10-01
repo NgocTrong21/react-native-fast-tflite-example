@@ -737,33 +737,31 @@ const DetectScreen = () => {
         'granted' &&
         permissions['android.permission.READ_MEDIA_VIDEO'] === 'granted' &&
         permissions['android.permission.READ_MEDIA_AUDIO'] === 'granted' &&
-        permissions['android.permission.WRITE_EXTERNAL_STORAGE'] ===
-        'granted' &&
-        permissions['android.permission.READ_EXTERNAL_STORAGE'] === 'granted'
+        permissions['android.permission.WRITE_EXTERNAL_STORAGE'] === 'granted'
         ? true
         : false;
     } else {
-      console.log('ANDROID VERSION NOT 33');
-      const permission = await PermissionsAndroid.request(
+      const permissions = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
+        PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO,
+        PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO,
         PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-      );
-
-      return permission === 'granted' ? true : false;
+        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+      ]);
+      return permissions['android.permission.READ_MEDIA_IMAGES'] ===
+        'granted' &&
+        permissions['android.permission.READ_MEDIA_VIDEO'] === 'granted' &&
+        permissions['android.permission.READ_MEDIA_AUDIO'] === 'granted' &&
+        permissions['android.permission.READ_EXTERNAL_STORAGE'] === 'granted' &&
+        permissions['android.permission.WRITE_EXTERNAL_STORAGE'] === 'granted'
+        ? true
+        : false;
     }
   };
 
   useEffect(() => {
     const checkPermissions = async () => {
       await requestPermission();
-      const hasAccess = await requestLibraryAccessAndroid();
-      if (!hasAccess) {
-        Alert.alert(
-          'Permission Denied',
-          'Cannot access media library without permission.',
-        );
-      } else {
-        console.log('Permission granted');
-      }
     };
 
     checkPermissions();
