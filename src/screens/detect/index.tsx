@@ -561,6 +561,7 @@ const DetectScreen = () => {
   const [isVisibleBody, setIsVisibleBody] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(true);
   const [countFrameDetect, setCountFrameDetect] = useState<number[]>([]);
+  const [keypointData, setKeypointData] = useState([]);
   const camRef = useRef<Camera>(null);
   const [downloadPath, setDownloadPath] = useState<string>();
   const REVERSE_BODY_PART = {};
@@ -973,10 +974,10 @@ const DetectScreen = () => {
       wrist: rebaBData.hand_score,
       handle: '',
     };
-
+    setCountFrameDetect(prevCountFrame => [...prevCountFrame, count]);
     setJsonData(prevJsonData => [...prevJsonData, finalData]);
     setListScore(prevListScore => [...prevListScore, finalScore]);
-    setCountFrameDetect(prevCountFrame => [...prevCountFrame, count]);
+    setKeypointData(prev => [...prev, coordinates]);
 
     // try {
     //   const jsonFileName = `coordinates_${Date.now()}.json`;
@@ -1256,6 +1257,7 @@ const DetectScreen = () => {
         scoreData: listScore,
         countFrameList: countFrameDetect,
         namePath: filePath,
+        keypoint: keypointData,
       });
     }
 
