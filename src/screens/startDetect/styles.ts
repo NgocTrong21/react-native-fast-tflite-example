@@ -6,6 +6,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#ffffff',
+    paddingVertical: 60,
   },
   button: {
     paddingHorizontal: 20,

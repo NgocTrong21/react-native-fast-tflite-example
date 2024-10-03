@@ -77,9 +77,12 @@ const StopDetectScreen = () => {
     countFrameList = [],
     namePath,
     keypoint,
+    frameOption,
   } = route.params;
   const [extractedFrames, setExtractedFrames] = useState([]);
   const [drawPoseData, setDrawPoseData] = useState([]);
+
+  console.log('countFrameList==========', countFrameList);
 
   const onSaveScreenshot = async () => {
     if (Array.isArray(viewRefs.current)) {
@@ -114,7 +117,8 @@ const StopDetectScreen = () => {
   const extractFramesFromVideo = async () => {
     try {
       const frameIndices = countFrameList;
-      await extractFrames(namePath, frameIndices);
+      const adjustedFrameOption = 1000 / frameOption;
+      await extractFrames(namePath, frameIndices, adjustedFrameOption);
     } catch (error) {
       console.error('Error extracting frames:', error);
     }
@@ -150,13 +154,14 @@ const StopDetectScreen = () => {
     setDrawPoseData(prev => [...prev, result]);
   };
 
-  const extractFrames = async (videoPath, frameIndices) => {
+  const extractFrames = async (videoPath, frameIndices, frameTimePerSec) => {
     const outputDir = `${RNFS.DownloadDirectoryPath}`;
     const extractedFramePaths = [];
 
     for (const frameTime of frameIndices) {
+      const exactTime = frameTime / frameTimePerSec;
       const outputFileName = `${outputDir}/frame_${frameTime}_${Date.now()}.png`;
-      const command = `-ss ${frameTime} -i ${videoPath} -frames:v 1 ${outputFileName}`;
+      const command = `-ss ${exactTime} -i ${videoPath} -frames:v 1 ${outputFileName}`;
       const session = await FFmpegKit.execute(command);
       const returnCode = await session.getReturnCode();
 

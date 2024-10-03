@@ -21,7 +21,11 @@ import {
 import { Colors } from 'react-native/Libraries/NewAppScreen';
 import { useResizePlugin } from 'vision-camera-resize-plugin';
 import { Svg, Circle, Line } from 'react-native-svg';
-import { NavigationProp, useNavigation } from '@react-navigation/native';
+import {
+  NavigationProp,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import { AppRootParams } from '../../navigation/types';
 import { styles } from './styles';
 import RNFS from 'react-native-fs';
@@ -549,6 +553,8 @@ const handAnglePoints = [20, 16, 22];
 
 const DetectScreen = () => {
   const { navigate, goBack } = useNavigation<NavigationProp<AppRootParams>>();
+  const route = useRoute();
+  const { frameOption } = route.params;
   const count = React.useRef(0);
   const { resize } = useResizePlugin();
   const [posesData, setPoseData] = useState<any[]>();
@@ -569,8 +575,8 @@ const DetectScreen = () => {
     const value = BODY_PARTS[key];
     REVERSE_BODY_PART[value] = key;
   }
-  const androidVer = Platform.Version;
 
+  console.log('FRAME OPTIONS', frameOption);
   const rebaA = (body_angle, neck_angle, leg_angle) => {
     let body_score = 0;
     let neck_score = 0;
@@ -726,40 +732,6 @@ const DetectScreen = () => {
 
     return a_reba_c[reba_a_score - 1][reba_b_score - 1];
   };
-
-  const requestLibraryAccessAndroid = async () => {
-    if (androidVer.toString() === '33') {
-      const permissions = await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
-        PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO,
-        PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO,
-      ]);
-      return permissions['android.permission.READ_MEDIA_IMAGES'] ===
-        'granted' &&
-        permissions['android.permission.READ_MEDIA_VIDEO'] === 'granted' &&
-        permissions['android.permission.READ_MEDIA_AUDIO'] === 'granted' &&
-        permissions['android.permission.WRITE_EXTERNAL_STORAGE'] === 'granted'
-        ? true
-        : false;
-    } else {
-      const permissions = await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
-        PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO,
-        PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO,
-        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-      ]);
-      return permissions['android.permission.READ_MEDIA_IMAGES'] ===
-        'granted' &&
-        permissions['android.permission.READ_MEDIA_VIDEO'] === 'granted' &&
-        permissions['android.permission.READ_MEDIA_AUDIO'] === 'granted' &&
-        permissions['android.permission.READ_EXTERNAL_STORAGE'] === 'granted' &&
-        permissions['android.permission.WRITE_EXTERNAL_STORAGE'] === 'granted'
-        ? true
-        : false;
-    }
-  };
-
   useEffect(() => {
     const checkPermissions = async () => {
       await requestPermission();
@@ -914,7 +886,6 @@ const DetectScreen = () => {
   );
   const model =
     objectDetection.state === 'loaded' ? objectDetection.model : undefined;
-  const isDarkMode = useColorScheme() === 'dark';
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice(isFrontCamera ? 'front' : 'back');
 
@@ -978,131 +949,6 @@ const DetectScreen = () => {
     setJsonData(prevJsonData => [...prevJsonData, finalData]);
     setListScore(prevListScore => [...prevListScore, finalScore]);
     setKeypointData(prev => [...prev, coordinates]);
-
-    // try {
-    //   const jsonFileName = `coordinates_${Date.now()}.json`;
-    //   const jsonFilePath = `${RNFS.DownloadDirectoryPath}/${jsonFileName}`;
-    //   await RNFS.writeFile(jsonFilePath, JSON.stringify(finalData), 'utf8');
-    //   await RNFS.copyFile(
-    //     jsonFilePath,
-    //     `${RNFS.ExternalStorageDirectoryPath}/Download/${jsonFileName}`,
-    //   );
-    // } catch (error) {
-    //   console.error('ERROR', error);
-    // }
-  };
-
-  // const float32ToBase64Chunks = (float32Array, chunkSize) => {
-  //   const base64Chunks = [];
-
-  //   for (let i = 0; i < float32Array.length; i += chunkSize) {
-  //     // Lấy phần mảng con
-  //     const chunk = float32Array.slice(i, i + chunkSize);
-
-  //     // Chuyển đổi chunk sang Uint8Array
-  //     const uint8Array = new Uint8Array(chunk.buffer);
-
-  //     // Chuyển đổi Uint8Array thành Base64
-  //     const base64String = uint8ArrayToBase64(uint8Array);
-
-  //     base64Chunks.push(base64String);
-  //   }
-
-  //   return base64Chunks;
-  // };
-
-  // // Hàm chuyển đổi Uint8Array sang Base64
-  // const uint8ArrayToBase64 = uint8Array => {
-  //   // Chuyển đổi Uint8Array thành Buffer
-  //   const buffer = Buffer.from(uint8Array);
-  //   // Chuyển đổi Buffer thành Base64
-  //   return buffer.toString('base64');
-  // };
-
-  const saveFrameAsImage = async float32Array => {
-    try {
-      // Chuyển đổi base64 thành Buffer
-      // console.log('Base 64', base64Data);
-      // const buffer = Buffer.from(base64Data, 'base64');
-
-      // // Bạn có thể xử lý buffer thành ảnh JPEG (ví dụ sử dụng jpeg-js)
-      // const width = 1280; // Kích thước ảnh, có thể thay đổi theo frame thực tế
-      // const height = 720;
-      // const rawImageData = {
-      //   data: frame.toArrayBuffer(),
-      //   width: 256,
-      //   height: 256,
-      // };
-      // const arrayBuffer = frame.toArrayBuffer(); // Chuyển đổi sang ArrayBuffer
-
-      // const frameCopy = deepCopyFrame(frame);
-
-      // const chunkSize = 10000; // Kích thước mảnh nhỏ
-      // const base64Parts = [];
-      // const numChunks = Math.ceil(float32Array.length / chunkSize);
-
-      // for (let i = 0; i < numChunks; i++) {
-      //   const chunk = float32Array.slice(i * chunkSize, (i + 1) * chunkSize);
-      //   const imageData = new Uint8Array(chunk.buffer);
-      //   const base64Data = Buffer.from(imageData).toString('base64');
-      //   base64Parts.push(base64Data);
-      // }
-
-      // // Kết hợp các phần lại với nhau nếu cần thiết
-      // const fullBase64Data = base64Parts.join('');
-      const fullBase64Data = float32ToBase64Chunks(float32Array, 4);
-
-      console.log('fullBase64Data', fullBase64Data);
-      const filePath = `${RNFS.DownloadDirectoryPath}/frame_${Date.now()}.jpg`;
-      await RNFS.writeFile(filePath, fullBase64Data, 'base64');
-
-      // // Chuyển buffer thành định dạng JPEG
-      // const jpegImageData = jpeg.encode(rawImageData, 90); // 90% chất lượng JPEG
-
-      // // Tạo đường dẫn file
-      // const fileName = `frame_${Date.now()}.jpg`;
-      // const filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
-
-      // // Lưu file dưới dạng base64
-      // await RNFS.writeFile(
-      //   filePath,
-      //   jpegImageData.data.toString('base64'),
-      //   'base64',
-      // );
-    } catch (error) {
-      console.error('Error saving image:', error);
-    }
-  };
-
-  const saveImageFromFloat32 = async arrayBuffer => {
-    try {
-      // // console.log('data', arrayBuffer);
-      // const float32Array = new Float32Array(arrayBuffer.buffer);
-      // const chunkSize = 10000; // Kích thước mảnh nhỏ
-      // const base64Parts = [];
-      // const numChunks = Math.ceil(float32Array.length / chunkSize);
-
-      // console.log('numChunks', numChunks);
-      // console.log('length', float32Array);
-      // for (let i = 0; i < numChunks; i++) {
-      //   const chunk = float32Array.slice(i * chunkSize, (i + 1) * chunkSize);
-      //   const imageData = new Uint8Array(chunk.buffer);
-      //   const base64Data = Buffer.from(imageData).toString('base64');
-      //   base64Parts.push(base64Data);
-      // }
-
-      // // Kết hợp các phần lại với nhau nếu cần thiết
-      // const fullBase64Data = base64Parts.join('');
-      // console.log('fullBase64Data', fullBase64Data);
-
-      // const filePath = `${RNFS.DownloadDirectoryPath}/image_${Date.now()}.png`;
-      // await RNFS.writeFile(filePath, fullBase64Data, 'base64');
-
-      const base64Image = convertUint8ArrayToBase64(arrayBuffer);
-      saveImage(base64Image);
-    } catch (error) {
-      console.error('Error saving image:', error);
-    }
   };
 
   const convertUint8ArrayToBase64 = uint8Array => {
@@ -1167,7 +1013,7 @@ const DetectScreen = () => {
       'worklet';
       const currentTime = Date.now();
 
-      if (currentTime - lastFrameTime.current > 1000) {
+      if (currentTime - lastFrameTime.current > frameOption) {
         lastFrameTime.current = currentTime;
         count.current++;
         if (model) {
@@ -1186,15 +1032,6 @@ const DetectScreen = () => {
 
           const outputs = model.runSync([resized]);
           const output = outputs[0];
-          // handleCovertImage(outputs);
-          // dataCanvas = [...dataCanvas, resized];
-          // const buffer = frame.toArrayBuffer();
-          // const dataTest = new Uint8Array(buffer);
-          // dataArrayRef.current.push(dataTest);
-          // handleSaveDataImage(dataTest);
-          // dataTest = [...dataTest, dataTest];
-          // dataImageTest.push(dataTest);
-
           const data = thirtyThreeKPs.map(item => {
             const keyIndex = item.value;
             const x = (output[keyIndex * 5] as number) / 256;
@@ -1217,23 +1054,6 @@ const DetectScreen = () => {
           if (bodyVisibleScore >= 15) {
             handleSetIsVisibleBody(true);
             handleSaveFile(data, count.current);
-            // const base64Image = frame.toString(); // toBase64 là giả định cho dữ liệu ảnh
-            // console.log('Frame data', resized.toString);
-            // // const base64Data = frame.data.toString('base64');
-            // let frameCopy = handleDeepCopy(frame);
-            //handleSaveImage(frame);
-            // const resizedGloat32 = resize(frame, {
-            //   scale: {
-            //     width: 50,
-            //     height: 50,
-            //   },
-            //   pixelFormat: 'rgb',
-            //   dataType: 'float32',
-            //   rotation: isFrontCamera ? '270deg' : '90deg',
-            //   mirror: isFrontCamera ? true : false,
-            // });
-            // const uint8Array = new Uint8Array(frame.toArrayBuffer());
-            // handleSaveImage(uint8Array);
           } else {
             handleSetIsVisibleBody(false);
           }
@@ -1258,6 +1078,7 @@ const DetectScreen = () => {
         countFrameList: countFrameDetect,
         namePath: filePath,
         keypoint: keypointData,
+        frameOption: frameOption,
       });
     }
 
@@ -1265,7 +1086,7 @@ const DetectScreen = () => {
       setFilePath('');
       console.log(`Cleaning up for count: ${filePath}`);
     };
-  }, [filePath, jsonData, countFrameDetect, listScore]); // Only runs when 'count' changes
+  }, [filePath, jsonData, countFrameDetect, listScore, frameOption]); // Only runs when 'count' changes
 
   const startRecording = () => {
     if (camRef.current) {
