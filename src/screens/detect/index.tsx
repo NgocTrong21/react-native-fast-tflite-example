@@ -30,9 +30,9 @@ import { AppRootParams } from '../../navigation/types';
 import { styles } from './styles';
 import RNFS from 'react-native-fs';
 import jpeg from 'jpeg-js';
-import { Buffer } from 'buffer';
+// import { Buffer } from 'buffer';
 import { log } from 'console';
-global.Buffer = global.Buffer || Buffer;
+// global.Buffer = global.Buffer || Buffer;
 
 // const MIN_SCORE = 0.2;
 // const widthPreview = 400;
@@ -567,6 +567,8 @@ const DetectScreen = () => {
   const [isFrontCamera, setIsFrontCamera] = useState(true);
   const [countFrameDetect, setCountFrameDetect] = useState<number[]>([]);
   const [keypointData, setKeypointData] = useState([]);
+  const [calculationFormula, setCalFormula] = useState();
+  const [showCamera, setShowCamera] = useState(false);
   const camRef = useRef<Camera>(null);
   const [downloadPath, setDownloadPath] = useState<string>();
   const REVERSE_BODY_PART = {};
@@ -736,8 +738,6 @@ const DetectScreen = () => {
     };
 
     checkPermissions();
-
-    startRecording();
   }, []);
 
   function convertPoseDataToCoordinates(poseData: any[]): [number, number][] {
@@ -987,7 +987,6 @@ const DetectScreen = () => {
     frame => {
       'worklet';
       const currentTime = Date.now();
-
       if (currentTime - lastFrameTime.current > frameOption) {
         lastFrameTime.current = currentTime;
         count.current++;
@@ -1104,6 +1103,10 @@ const DetectScreen = () => {
     setIsFrontCamera(prev => !prev);
   };
 
+  const onPressStart = () => {
+    setShowCamera(true);
+    setTimeout(() => startRecording(), 500);
+  };
   const style = styles(widthPreview, heightPreview);
 
   return (
@@ -1112,12 +1115,60 @@ const DetectScreen = () => {
         <TouchableOpacity style={style.backButton} onPress={goBack}>
           <Text style={style.text}>Back</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[style.button, !calculationFormula && { opacity: 0.5 }]}
+          disabled={!calculationFormula}
+          onPress={onPressStart}>
+          <Text style={style.text}>Start</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={style.switchButton} onPress={onToggleCamera}>
           <Text style={style.text}>Switch</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={style.button} onPress={onStopDetect}>
+        <TouchableOpacity style={style.stopButton} onPress={onStopDetect}>
           <Text style={style.text}>Stop</Text>
         </TouchableOpacity>
+      </View>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingHorizontal: 20,
+          paddingVertical: 20,
+        }}>
+        {['REBA', 'RULA', 'OWS'].map(calFormula => (
+          <TouchableOpacity
+            key={calFormula}
+            onPress={() => setCalFormula(calFormula)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginVertical: 5,
+            }}>
+            <View
+              style={{
+                height: 20,
+                width: 20,
+                borderRadius: 10,
+                borderWidth: 2,
+                borderColor:
+                  calculationFormula === calFormula ? 'blue' : 'gray',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              {calculationFormula === calFormula && (
+                <View
+                  style={{
+                    height: 12,
+                    width: 12,
+                    borderRadius: 6,
+                    backgroundColor: 'blue',
+                  }}
+                />
+              )}
+            </View>
+            <Text style={{ marginLeft: 10 }}>{calFormula}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
       <View
         style={{
@@ -1126,13 +1177,13 @@ const DetectScreen = () => {
           width: '100%',
         }}>
         <View
-          style={{ height: '90%' }}
+          style={{ height: '100%' }}
           onLayout={event => {
             const { width, height } = event.nativeEvent.layout;
             setWidthPreview(width);
             setHeightPreview(height);
           }}>
-          {device && hasPermission && (
+          {device && hasPermission && showCamera && (
             <Camera
               frameProcessor={frameProcessor}
               style={style.camera}

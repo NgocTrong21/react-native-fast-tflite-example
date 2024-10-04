@@ -171,7 +171,7 @@ const StopDetectScreen = () => {
     const extractedFramePaths = [];
 
     for (const frameTime of frameIndices) {
-      const exactTime = frameTime / frameTimePerSec;
+      const exactTime = frameTime / frameTimePerSec + frameTimePerSec;
       console.log('EXACT TIME', exactTime);
       const outputFileName = `${outputDir}/frame_${frameTime}_${Date.now()}.png`;
       const command = `-ss ${exactTime} -i ${videoPath} -frames:v 1 ${outputFileName}`;
