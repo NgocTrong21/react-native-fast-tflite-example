@@ -34,9 +34,9 @@ import { Buffer } from 'buffer';
 import { log } from 'console';
 global.Buffer = global.Buffer || Buffer;
 
-const MIN_SCORE = 0.2;
-const widthPreview = 400;
-const heightPreview = widthPreview / (3 / 4);
+// const MIN_SCORE = 0.2;
+// const widthPreview = 400;
+// const heightPreview = widthPreview / (3 / 4);
 // const heightPreview = Dimensions.get('window').height;
 // const heightPreview = 200;
 // const widthPreview = heightPreview / (4 / 3);
@@ -561,7 +561,6 @@ const DetectScreen = () => {
   const [widthPreview, setWidthPreview] = useState(0);
   const [heightPreview, setHeightPreview] = useState(0);
   const [scorePoint, setScorePoint] = useState();
-  const [dataCanvas, setDataCanvas] = useState<string>([]);
   const [jsonData, setJsonData] = useState([]);
   const [listScore, setListScore] = useState([]);
   const [isVisibleBody, setIsVisibleBody] = useState(false);
@@ -576,7 +575,6 @@ const DetectScreen = () => {
     REVERSE_BODY_PART[value] = key;
   }
 
-  console.log('FRAME OPTIONS', frameOption);
   const rebaA = (body_angle, neck_angle, leg_angle) => {
     let body_score = 0;
     let neck_score = 0;
@@ -889,7 +887,7 @@ const DetectScreen = () => {
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice(isFrontCamera ? 'front' : 'back');
 
-  const saveData = async (coordinates, count) => {
+  const saveData = (coordinates, count) => {
     const bodyAngle = new_calculate_angle(
       coordinates[bodyAnglePoints[0]],
       coordinates[bodyAnglePoints[1]],
@@ -949,29 +947,6 @@ const DetectScreen = () => {
     setJsonData(prevJsonData => [...prevJsonData, finalData]);
     setListScore(prevListScore => [...prevListScore, finalScore]);
     setKeypointData(prev => [...prev, coordinates]);
-  };
-
-  const convertUint8ArrayToBase64 = uint8Array => {
-    // Chuyển đổi Uint8Array thành Base64
-    let binary = '';
-    const len = uint8Array.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(uint8Array[i]);
-    }
-    return `data:image/png;base64,${btoa(binary)}`; // Giả sử đây là PNG
-  };
-
-  // Hàm để lưu hình ảnh
-  const saveImage = async base64Data => {
-    // Đường dẫn lưu file
-    const path = `${RNFS.DownloadDirectoryPath}/image.png`;
-    // Ghi file
-    try {
-      await RNFS.writeFile(path, base64Data, 'base64');
-      console.log('Hình ảnh đã được lưu tại:', path);
-    } catch (error) {
-      console.error('Lỗi khi lưu hình ảnh:', error);
-    }
   };
 
   const handleSetCoordinate = Worklets.createRunInJsFn(setCordinate);
@@ -1051,7 +1026,7 @@ const DetectScreen = () => {
           ).length;
           handleSetCoordinate(data);
           handleCalcScoreDistance(data);
-          if (bodyVisibleScore >= 15) {
+          if (bodyVisibleScore >= 17) {
             handleSetIsVisibleBody(true);
             handleSaveFile(data, count.current);
           } else {
@@ -1116,7 +1091,7 @@ const DetectScreen = () => {
       try {
         await camRef.current.stopRecording();
       } catch (error) {
-        console.error('Lỗi khi dừng ghi video:', error);
+        console.error('Error when stopping video recording:', error);
       }
     }
   };
@@ -1151,9 +1126,7 @@ const DetectScreen = () => {
           width: '100%',
         }}>
         <View
-          style={{
-            height: '75%',
-          }}
+          style={{ height: '90%' }}
           onLayout={event => {
             const { width, height } = event.nativeEvent.layout;
             setWidthPreview(width);
@@ -1170,12 +1143,7 @@ const DetectScreen = () => {
               photo={true}
             />
           )}
-          <Svg
-            width={widthPreview}
-            height={heightPreview}
-            style={style.canvas}
-          // viewBox={`-${widthPreview} 0 ${widthPreview} ${heightPreview}`}
-          >
+          <Svg width={widthPreview} height={heightPreview} style={style.canvas}>
             {/* {posesData &&
              posesData.filter(item => item.score > MIN_SCORE).map((item, index) => (
                <Circle key={index} r={5} cx={item.x} cy={item.y} fill="red" />

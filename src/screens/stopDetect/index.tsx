@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -81,10 +82,21 @@ const StopDetectScreen = () => {
   } = route.params;
   const [extractedFrames, setExtractedFrames] = useState([]);
   const [drawPoseData, setDrawPoseData] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  console.log('countFrameList==========', countFrameList);
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
 
-  const onSaveScreenshot = async () => {
+    return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+  };
+
+  const onSaveScreenshot = async (folderPath: string) => {
     if (Array.isArray(viewRefs.current)) {
       for (let index = 0; index < extractedFrames.length; index++) {
         const ref = viewRefs.current[index];
@@ -94,8 +106,8 @@ const StopDetectScreen = () => {
               format: 'png',
               quality: 1,
             });
-            const fileName = `screenshot_${index}_${Date.now()}.png`;
-            const path = `${RNFS.DownloadDirectoryPath}/${fileName}`;
+            const fileName = `${index}_${getCurrentDateTime()}.png`;
+            const path = `${folderPath}/${fileName}`;
             await RNFS.moveFile(uri, path);
           } catch (error) {
             console.error('Error saving screenshot:', error);
@@ -160,6 +172,7 @@ const StopDetectScreen = () => {
 
     for (const frameTime of frameIndices) {
       const exactTime = frameTime / frameTimePerSec;
+      console.log('EXACT TIME', exactTime);
       const outputFileName = `${outputDir}/frame_${frameTime}_${Date.now()}.png`;
       const command = `-ss ${exactTime} -i ${videoPath} -frames:v 1 ${outputFileName}`;
       const session = await FFmpegKit.execute(command);
@@ -175,21 +188,47 @@ const StopDetectScreen = () => {
   };
 
   const onSaveData = async () => {
+    setIsLoading(true);
     try {
-      for (const item of jsonData) {
-        const jsonFileName = `coordinates_${Date.now()}.json`;
-        const jsonFilePath = `${RNFS.DocumentDirectoryPath}/${jsonFileName}`;
+      const parentFolderPath = `${RNFS.DownloadDirectoryPath}/AI`;
+      if (!(await RNFS.exists(parentFolderPath))) {
+        await RNFS.mkdir(parentFolderPath);
+      }
+
+      const currentDateTime = getCurrentDateTime();
+
+      const existingFolders = await RNFS.readDir(parentFolderPath);
+      let maxSequence = 0;
+
+      for (const folder of existingFolders) {
+        if (folder.isDirectory() && /^\d+_/.test(folder.name)) {
+          const sequence = parseInt(folder.name.split('_')[0], 10);
+          if (sequence > maxSequence) {
+            maxSequence = sequence;
+          }
+        }
+      }
+
+      const newSequence = maxSequence + 1;
+      const childFolderPath = `${parentFolderPath}/${newSequence}_${currentDateTime}_REBA`;
+
+      if (!(await RNFS.exists(childFolderPath))) {
+        await RNFS.mkdir(childFolderPath);
+      }
+
+      for (const [index, item] of jsonData.entries()) {
+        const jsonFileName = `${index}_${currentDateTime}.json`;
+        const jsonFilePath = `${childFolderPath}/${jsonFileName}`;
 
         await RNFS.writeFile(jsonFilePath, JSON.stringify(item), 'utf8');
-        await RNFS.copyFile(
-          jsonFilePath,
-          `${RNFS.ExternalStorageDirectoryPath}/Download/${jsonFileName}`,
-        );
       }
+
+      await onSaveScreenshot(childFolderPath);
       Alert.alert('Success', 'Data saved successfully!');
-      await onSaveScreenshot();
     } catch (error) {
       console.error('Error saving data:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -207,6 +246,9 @@ const StopDetectScreen = () => {
 
   return (
     <View style={styles.container}>
+      {isLoading && (
+        <ActivityIndicator size="large" color="green" style={styles.loader} />
+      )}
       <View style={styles.header}>
         <TouchableOpacity style={styles.button} onPress={onSaveData}>
           <Text style={styles.text}>Save</Text>
@@ -238,35 +280,33 @@ const StopDetectScreen = () => {
                       width: '100%',
                       height: '100%',
                     }}>
-                    {item.keypoint &&
-                      item.keypoint
-                        .filter((_pose, index) => !headKPs.includes(index))
-                        .map((kp, idx) => (
-                          <Circle
-                            key={idx}
-                            r={1}
-                            cx={kp.x}
-                            cy={kp.y}
-                            fill={'#99CC66'}
-                          />
-                        ))}
-                    {item.keypoint &&
-                      connections
-                        .filter(
-                          ([a, b]) =>
-                            !headKPs.includes(a) && !headKPs.includes(b),
-                        )
-                        .map((conn, idx) => (
-                          <Line
-                            key={`skeletonkp_${idx}`}
-                            x1={item.keypoint[conn[0]].x}
-                            y1={item.keypoint[conn[0]].y}
-                            x2={item.keypoint[conn[1]].x}
-                            y2={item.keypoint[conn[1]].y}
-                            stroke="#99CC66"
-                            strokeWidth="1"
-                          />
-                        ))}
+                    {headKPs.map((kpIndex, idx) => {
+                      const kp = item.keypoint[kpIndex];
+                      return (
+                        <Circle
+                          key={`circle-${idx}`}
+                          cx={kp.x}
+                          cy={kp.y}
+                          r="2"
+                          fill="green"
+                        />
+                      );
+                    })}
+                    {connections.map((conn, idx) => {
+                      const kp0 = item.keypoint[conn[0]];
+                      const kp1 = item.keypoint[conn[1]];
+                      return (
+                        <Line
+                          key={`line-${idx}`}
+                          x1={kp0.x}
+                          y1={kp0.y}
+                          x2={kp1.x}
+                          y2={kp1.y}
+                          stroke="green"
+                          strokeWidth="1"
+                        />
+                      );
+                    })}
                   </Svg>
                 </View>
               ) : (

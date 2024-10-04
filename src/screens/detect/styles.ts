@@ -65,11 +65,6 @@ export const styles = (widthPreview: number, heightPreview: number) =>
       paddingHorizontal: 16,
       alignItems: 'center',
       height: 100,
-      marginBottom: '20%',
-      // position: 'absolute',
-      // zIndex: 999,
-      // left: 0,
-      // right: 0,
     },
     backButton: {
       paddingVertical: 16,
