@@ -577,6 +577,40 @@ const DetectScreen = () => {
     REVERSE_BODY_PART[value] = key;
   }
 
+  const startRecording = () => {
+    if (camRef.current) {
+      camRef.current.startRecording({
+        onRecordingFinished: video => {
+          saveVideoToDownloads(video.path);
+        },
+        onRecordingError: error =>
+          console.error('Error when start video recording:', error),
+      });
+    }
+  };
+
+  const saveVideoToDownloads = async uri => {
+    const downloadPath = `${RNFS.DownloadDirectoryPath}/${Date.now()}.mp4`;
+    setDownloadPath(downloadPath);
+    try {
+      await RNFS.moveFile(uri, downloadPath);
+      setFilePath(downloadPath);
+    } catch (error) {
+      console.error('Error saving video to downloads:', error);
+      Alert.alert('Error', 'Could not save video to downloads');
+    }
+  };
+
+  const stopRecording = async () => {
+    if (camRef.current) {
+      try {
+        await camRef.current.stopRecording();
+      } catch (error) {
+        console.error('Error when stopping video recording:', error);
+      }
+    }
+  };
+
   const rebaA = (body_angle, neck_angle, leg_angle) => {
     let body_score = 0;
     let neck_score = 0;
@@ -732,12 +766,110 @@ const DetectScreen = () => {
 
     return a_reba_c[reba_a_score - 1][reba_b_score - 1];
   };
+
+  const rulaA = (neck_angle, trunk_angle, wrist_angle) => {
+    let neck_score = 0;
+    let trunk_score = 0;
+    let wrist_score = 0;
+
+    if (neck_angle <= 20) {
+      neck_score = 1;
+    } else if (neck_angle <= 45) {
+      neck_score = 2;
+    } else if (neck_angle <= 60) {
+      neck_score = 3;
+    } else {
+      neck_score = 4;
+    }
+
+    if (trunk_angle <= 20) {
+      trunk_score = 1;
+    } else if (trunk_angle <= 45) {
+      trunk_score = 2;
+    } else if (trunk_angle <= 60) {
+      trunk_score = 3;
+    } else {
+      trunk_score = 4;
+    }
+
+    if (wrist_angle <= 20) {
+      wrist_score = 1;
+    } else if (wrist_angle <= 30) {
+      wrist_score = 2;
+    } else {
+      wrist_score = 3;
+    }
+
+    return {
+      rulaScoreA: neck_score + trunk_score + wrist_score,
+      neck_score,
+      trunk_score,
+      wrist_score,
+    };
+  };
+
+  const rulaB = (shoulder_angle, elbow_angle, hand_angle) => {
+    let shoulder_score = 0;
+    let elbow_score = 0;
+    let hand_score = 0;
+
+    if (shoulder_angle <= 15) {
+      shoulder_score = 1;
+    } else if (shoulder_angle <= 30) {
+      shoulder_score = 2;
+    } else {
+      shoulder_score = 3;
+    }
+
+    if (elbow_angle <= 30) {
+      elbow_score = 1;
+    } else if (elbow_angle <= 90) {
+      elbow_score = 2;
+    } else {
+      elbow_score = 3;
+    }
+
+    if (hand_angle <= 15) {
+      hand_score = 1;
+    } else if (hand_angle <= 30) {
+      hand_score = 2;
+    } else {
+      hand_score = 3;
+    }
+
+    return {
+      rulaScoreB: shoulder_score + elbow_score + hand_score,
+      shoulder_score,
+      elbow_score,
+      hand_score,
+    };
+  };
+
+  const rulaC = (rula_a_score, rula_b_score) => {
+    const a_rula_c = [
+      [1, 2, 3, 3, 4, 5, 5, 5, 5, 5, 5],
+      [2, 2, 3, 4, 4, 5, 5, 5, 5, 5, 5],
+      [3, 3, 3, 4, 4, 4, 6, 6, 6, 6, 6],
+      [3, 3, 3, 4, 5, 6, 6, 6, 6, 6, 6],
+      [4, 4, 4, 5, 6, 6, 6, 6, 7, 7, 7],
+      [4, 4, 5, 6, 6, 6, 6, 6, 7, 7, 7],
+      [5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+      [5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+      [5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+      [5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+      [5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+    ];
+
+    return a_rula_c[rula_a_score - 1][rula_b_score - 1];
+  };
+
   useEffect(() => {
     const checkPermissions = async () => {
       await requestPermission();
     };
 
     checkPermissions();
+    startRecording();
   }, []);
 
   function convertPoseDataToCoordinates(poseData: any[]): [number, number][] {
@@ -924,11 +1056,54 @@ const DetectScreen = () => {
       coordinates[handAnglePoints[1]],
       coordinates[handAnglePoints[2]],
     );
+
+    const trunkAngle = new_calculate_angle(
+      coordinates[bodyAnglePoints[0]],
+      coordinates[bodyAnglePoints[1]],
+      coordinates[bodyAnglePoints[2]],
+    );
+
+    const wristAngle = new_calculate_angle(
+      coordinates[20],
+      coordinates[21],
+      coordinates[22],
+    );
+
     const rebaBData = rebaB(shoulderAngle, elbowAngle, handAngle);
     const rebaBScore = rebaB(shoulderAngle, elbowAngle, handAngle).scoreB;
-    const finalScore = rebaC(rebaAScore, rebaBScore);
+    const finalRebaScore = rebaC(rebaAScore, rebaBScore);
 
-    const finalData = {
+    const {
+      rulaScoreA: rulaA_score,
+      neck_score,
+      trunk_score,
+      wrist_score,
+    } = rulaA(neckAngle, trunkAngle, wristAngle);
+    const {
+      rulaScoreB: rulaB_score,
+      shoulder_score,
+      hand_score,
+      elbow_score,
+    } = rulaB(shoulderAngle, elbowAngle, handAngle);
+    const finalRulaScore = rulaC(rulaA_score, rulaB_score);
+
+    const finalRulaData = {
+      mode: '',
+      selected: 0,
+      task: '',
+      time: '',
+      image: '' + '.jpg',
+      trunk: trunk_score,
+      neck: neck_score,
+      wrist: wrist_score,
+      weight: '',
+      shoulder: shoulder_score,
+      elbow: elbow_score,
+      hand: hand_score,
+      handle: '',
+    };
+
+    const finalRebaData = {
       mode: '',
       selected: 0,
       task: '',
@@ -944,8 +1119,14 @@ const DetectScreen = () => {
       handle: '',
     };
     setCountFrameDetect(prevCountFrame => [...prevCountFrame, count]);
-    setJsonData(prevJsonData => [...prevJsonData, finalData]);
-    setListScore(prevListScore => [...prevListScore, finalScore]);
+    setJsonData(prevJsonData => [
+      ...prevJsonData,
+      calculationFormula === 'REBA' ? finalRebaData : finalRulaData,
+    ]);
+    setListScore(prevListScore => [
+      ...prevListScore,
+      calculationFormula === 'REBA' ? finalRebaScore : finalRulaScore,
+    ]);
     setKeypointData(prev => [...prev, coordinates]);
   };
 
@@ -953,6 +1134,7 @@ const DetectScreen = () => {
   const handleCalcScoreDistance = Worklets.createRunInJsFn(setScoreDistance);
   const handleSaveFile = Worklets.createRunInJsFn(saveData);
   const handleSetIsVisibleBody = Worklets.createRunInJsFn(setIsVisibleBody);
+  // const handleStartRecord = Worklets.createRunInJsFn(startRecording);
 
   function isValidNormalizedValue(value: number): boolean {
     return value >= 0 && value <= 1;
@@ -982,6 +1164,7 @@ const DetectScreen = () => {
     return { x, y };
   };
   const lastFrameTime = useRef(Date.now());
+  // const hasStartedRecording = useRef(false);
 
   const frameProcessor = useFrameProcessor(
     frame => {
@@ -1026,6 +1209,10 @@ const DetectScreen = () => {
           handleSetCoordinate(data);
           handleCalcScoreDistance(data);
           if (bodyVisibleScore >= 17) {
+            // if (!hasStartedRecording.current) {
+            //   handleStartRecord();
+            //   hasStartedRecording.current = true;
+            // }
             handleSetIsVisibleBody(true);
             handleSaveFile(data, count.current);
           } else {
@@ -1053,6 +1240,7 @@ const DetectScreen = () => {
         namePath: filePath,
         keypoint: keypointData,
         frameOption: frameOption,
+        calculationFormula: calculationFormula,
       });
     }
 
@@ -1060,40 +1248,14 @@ const DetectScreen = () => {
       setFilePath('');
       console.log(`Cleaning up for count: ${filePath}`);
     };
-  }, [filePath, jsonData, countFrameDetect, listScore, frameOption]); // Only runs when 'count' changes
-
-  const startRecording = () => {
-    if (camRef.current) {
-      camRef.current.startRecording({
-        onRecordingFinished: video => {
-          saveVideoToDownloads(video.path);
-        },
-        onRecordingError: error => console.error(error),
-      });
-    }
-  };
-
-  const saveVideoToDownloads = async uri => {
-    const downloadPath = `${RNFS.DownloadDirectoryPath}/${Date.now()}.mp4`;
-    setDownloadPath(downloadPath);
-    try {
-      await RNFS.moveFile(uri, downloadPath);
-      setFilePath(downloadPath);
-    } catch (error) {
-      console.error('Error saving video to downloads:', error);
-      Alert.alert('Error', 'Could not save video to downloads');
-    }
-  };
-
-  const stopRecording = async () => {
-    if (camRef.current) {
-      try {
-        await camRef.current.stopRecording();
-      } catch (error) {
-        console.error('Error when stopping video recording:', error);
-      }
-    }
-  };
+  }, [
+    filePath,
+    jsonData,
+    countFrameDetect,
+    listScore,
+    frameOption,
+    calculationFormula,
+  ]); // Only runs when 'count' changes
 
   const onStopDetect = () => {
     stopRecording();

@@ -79,6 +79,7 @@ const StopDetectScreen = () => {
     namePath,
     keypoint,
     frameOption,
+    calculationFormula,
   } = route.params;
   const [extractedFrames, setExtractedFrames] = useState([]);
   const [drawPoseData, setDrawPoseData] = useState([]);
@@ -171,7 +172,7 @@ const StopDetectScreen = () => {
     const extractedFramePaths = [];
 
     for (const frameTime of frameIndices) {
-      const exactTime = frameTime / frameTimePerSec + frameTimePerSec;
+      const exactTime = frameTime / frameTimePerSec;
       console.log('EXACT TIME', exactTime);
       const outputFileName = `${outputDir}/frame_${frameTime}_${Date.now()}.png`;
       const command = `-ss ${exactTime} -i ${videoPath} -frames:v 1 ${outputFileName}`;
@@ -210,7 +211,7 @@ const StopDetectScreen = () => {
       }
 
       const newSequence = maxSequence + 1;
-      const childFolderPath = `${parentFolderPath}/${newSequence}_${currentDateTime}_REBA`;
+      const childFolderPath = `${parentFolderPath}/${newSequence}_${currentDateTime}_${calculationFormula}`;
 
       if (!(await RNFS.exists(childFolderPath))) {
         await RNFS.mkdir(childFolderPath);
