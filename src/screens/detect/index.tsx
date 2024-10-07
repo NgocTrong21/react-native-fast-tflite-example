@@ -869,7 +869,7 @@ const DetectScreen = () => {
     };
 
     checkPermissions();
-    startRecording();
+    // startRecording();
   }, []);
 
   function convertPoseDataToCoordinates(poseData: any[]): [number, number][] {
@@ -1118,6 +1118,9 @@ const DetectScreen = () => {
       wrist: rebaBData.hand_score,
       handle: '',
     };
+
+    const finalOwsScore = Math.ceil(finalRulaScore / 2);
+
     setCountFrameDetect(prevCountFrame => [...prevCountFrame, count]);
     setJsonData(prevJsonData => [
       ...prevJsonData,
@@ -1125,7 +1128,13 @@ const DetectScreen = () => {
     ]);
     setListScore(prevListScore => [
       ...prevListScore,
-      calculationFormula === 'REBA' ? finalRebaScore : finalRulaScore,
+      calculationFormula === 'REBA'
+        ? finalRebaScore
+        : calculationFormula === 'RULA'
+          ? finalRulaScore
+          : calculationFormula === 'OWS'
+            ? finalOwsScore
+            : prevListScore,
     ]);
     setKeypointData(prev => [...prev, coordinates]);
   };
@@ -1134,7 +1143,7 @@ const DetectScreen = () => {
   const handleCalcScoreDistance = Worklets.createRunInJsFn(setScoreDistance);
   const handleSaveFile = Worklets.createRunInJsFn(saveData);
   const handleSetIsVisibleBody = Worklets.createRunInJsFn(setIsVisibleBody);
-  // const handleStartRecord = Worklets.createRunInJsFn(startRecording);
+  const handleStartRecord = Worklets.createRunInJsFn(startRecording);
 
   function isValidNormalizedValue(value: number): boolean {
     return value >= 0 && value <= 1;
@@ -1164,7 +1173,7 @@ const DetectScreen = () => {
     return { x, y };
   };
   const lastFrameTime = useRef(Date.now());
-  // const hasStartedRecording = useRef(false);
+  const hasStartedRecording = useRef(false);
 
   const frameProcessor = useFrameProcessor(
     frame => {
@@ -1209,10 +1218,10 @@ const DetectScreen = () => {
           handleSetCoordinate(data);
           handleCalcScoreDistance(data);
           if (bodyVisibleScore >= 17) {
-            // if (!hasStartedRecording.current) {
-            //   handleStartRecord();
-            //   hasStartedRecording.current = true;
-            // }
+            if (!hasStartedRecording.current) {
+              handleStartRecord();
+              hasStartedRecording.current = true;
+            }
             handleSetIsVisibleBody(true);
             handleSaveFile(data, count.current);
           } else {
@@ -1267,7 +1276,7 @@ const DetectScreen = () => {
 
   const onPressStart = () => {
     setShowCamera(true);
-    setTimeout(() => startRecording(), 500);
+    // setTimeout(() => startRecording(), 500);
   };
   const style = styles(widthPreview, heightPreview);
 
