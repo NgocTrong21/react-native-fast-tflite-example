@@ -82,4 +82,12 @@ export const styles = (widthPreview: number, heightPreview: number) =>
       alignItems: 'center',
       borderRadius: 8,
     },
+    frameButton: {
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      backgroundColor: '#9a50ce',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: 8,
+    },
   });

@@ -30,6 +30,8 @@ import { AppRootParams } from '../../navigation/types';
 import { styles } from './styles';
 import RNFS from 'react-native-fs';
 import jpeg from 'jpeg-js';
+import Modal from 'react-native-modal';
+
 // import { Buffer } from 'buffer';
 import { log } from 'console';
 // global.Buffer = global.Buffer || Buffer;
@@ -553,8 +555,6 @@ const handAnglePoints = [20, 16, 22];
 
 const DetectScreen = () => {
   const { navigate, goBack } = useNavigation<NavigationProp<AppRootParams>>();
-  const route = useRoute();
-  const { frameOption } = route.params;
   const count = React.useRef(0);
   const { resize } = useResizePlugin();
   const [posesData, setPoseData] = useState<any[]>();
@@ -569,6 +569,8 @@ const DetectScreen = () => {
   const [keypointData, setKeypointData] = useState([]);
   const [calculationFormula, setCalFormula] = useState();
   const [showCamera, setShowCamera] = useState(false);
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [frameOptionSelected, setFrameOptionSelected] = useState<number>(1000);
   const camRef = useRef<Camera>(null);
   const [downloadPath, setDownloadPath] = useState<string>();
   const REVERSE_BODY_PART = {};
@@ -576,6 +578,10 @@ const DetectScreen = () => {
     const value = BODY_PARTS[key];
     REVERSE_BODY_PART[value] = key;
   }
+
+  const toggleModal = () => {
+    setModalVisible(!isModalVisible);
+  };
 
   const startRecording = () => {
     if (camRef.current) {
@@ -1179,7 +1185,7 @@ const DetectScreen = () => {
     frame => {
       'worklet';
       const currentTime = Date.now();
-      if (currentTime - lastFrameTime.current > frameOption) {
+      if (currentTime - lastFrameTime.current > frameOptionSelected) {
         lastFrameTime.current = currentTime;
         count.current++;
         if (model) {
@@ -1248,7 +1254,7 @@ const DetectScreen = () => {
         countFrameList: countFrameDetect,
         namePath: filePath,
         keypoint: keypointData,
-        frameOption: frameOption,
+        frameOption: frameOptionSelected,
         calculationFormula: calculationFormula,
       });
     }
@@ -1262,7 +1268,7 @@ const DetectScreen = () => {
     jsonData,
     countFrameDetect,
     listScore,
-    frameOption,
+    frameOptionSelected,
     calculationFormula,
   ]); // Only runs when 'count' changes
 
@@ -1285,6 +1291,9 @@ const DetectScreen = () => {
       <View style={style.header}>
         <TouchableOpacity style={style.backButton} onPress={goBack}>
           <Text style={style.text}>Back</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={style.frameButton} onPress={toggleModal}>
+          <Text style={style.text}>Frame</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[style.button, !calculationFormula && { opacity: 0.5 }]}
@@ -1456,6 +1465,90 @@ const DetectScreen = () => {
           </Svg>
         </View> */}
       </View>
+
+      <Modal isVisible={isModalVisible}>
+        <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 20 }}>
+          <Text style={{ marginBottom: 10, fontSize: 20, color: 'black' }}>
+            Select Frame Option:
+          </Text>
+          {[2000, 1000, 500, 200].map(frameOption => (
+            <TouchableOpacity
+              key={frameOption}
+              onPress={() => setFrameOptionSelected(frameOption)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginVertical: 5,
+              }}>
+              <View
+                style={{
+                  height: 20,
+                  width: 20,
+                  borderRadius: 10,
+                  borderWidth: 2,
+                  borderColor:
+                    frameOptionSelected === frameOption ? 'blue' : 'gray',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                {frameOptionSelected === frameOption && (
+                  <View
+                    style={{
+                      height: 12,
+                      width: 12,
+                      borderRadius: 6,
+                      backgroundColor: 'blue',
+                    }}
+                  />
+                )}
+              </View>
+              <Text style={{ marginLeft: 10 }}>{frameOption}ms</Text>
+            </TouchableOpacity>
+          ))}
+
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: 20,
+              marginTop: 20,
+              alignSelf: 'center',
+            }}>
+            <TouchableOpacity
+              onPress={toggleModal}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: 'red',
+              }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  color: '#f3f3f3',
+                }}>
+                Hide modal
+              </Text>
+            </TouchableOpacity>
+
+            {/* <TouchableOpacity
+              onPress={onNavigateToDetect}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: 'green',
+              }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  color: '#f3f3f3',
+                }}>
+                Start Detection
+              </Text>
+            </TouchableOpacity> */}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
